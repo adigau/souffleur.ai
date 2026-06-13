@@ -1,0 +1,114 @@
+{
+  "nav": {
+    "signIn": "Sign in",
+    "getStarted": "Get started",
+    "toggleTheme": "Toggle theme",
+    "toggleLocale": "FR"
+  },
+  "marketing": {
+    "hero": {
+      "eyebrow": "le souffleur · the prompter",
+      "headline": "Get off book,",
+      "headlineItalic": "faster.",
+      "subhead": "Drop in a script, pick your role, and rehearse with AI scene partners. Souffleur listens, prompts you when you stall, and tells you exactly which lines to drill.",
+      "cta": "Start for free",
+      "ctaSub": "or",
+      "ctaSignIn": "Sign in",
+      "feature1": "Upload a PDF — we extract cast, cues, directions",
+      "feature2": "AI scene partners with voices you cast",
+      "feature3": "Quiz Mode tests recall, not recognition"
+    },
+    "footer": {
+      "tagline": "souffleur.ai — know your lines, not just recognise them.",
+      "terms": "Terms",
+      "privacy": "Privacy"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "eyebrow": "Sign in",
+      "headline": "Welcome",
+      "headlineItalic": "back.",
+      "subhead": "The prompter is ready when you are. Pick up exactly where you left off.",
+      "google": "Continue with Google",
+      "or": "or",
+      "emailLabel": "Email",
+      "passwordLabel": "Password",
+      "forgot": "Forgot?",
+      "submit": "Sign in",
+      "noAccount": "New to Souffleur?",
+      "createAccount": "Create an account",
+      "lastUsed": "Last used",
+      "aside": "Public-domain plays included — Hamlet, Chekhov, Ibsen. Bring your own PDFs anytime."
+    },
+    "signUp": {
+      "eyebrow": "Create account",
+      "headline": "Get",
+      "headlineItalic": "off book, faster.",
+      "subhead": "Import a script, cast your scene partners, and start a read-through in minutes.",
+      "google": "Continue with Google",
+      "or": "or",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@theatre.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "at least 10 characters",
+      "submit": "Create account",
+      "terms": "By continuing you accept the",
+      "termsLink": "terms",
+      "and": "and",
+      "privacyLink": "privacy notice",
+      "haveAccount": "Already have an account?",
+      "signIn": "Sign in",
+      "aside": "Free to start — no card, no credits. Your scripts stay yours and are never shared or redistributed."
+    }
+  },
+  "library": {
+    "title": "Your library",
+    "subtitle": "plays · practiced recently",
+    "searchPlaceholder": "Search plays",
+    "write": "Write",
+    "import": "Import a PDF",
+    "dropHint": "Drop a PDF anywhere to start a new play",
+    "offBook": "% off book",
+    "asRole": "You play",
+    "lastPracticed": "Practiced",
+    "processing": "Processing",
+    "processingHint": "Parsing the PDF — you can leave this page.",
+    "attentionBadge": "Needs a look",
+    "attention": "Import finished —",
+    "reviewEditor": "Review in editor",
+    "empty": {
+      "headline": "Get",
+      "headlineItalic": "off book.",
+      "subhead": "Bring in a script, pick your role, and rehearse with AI scene partners.",
+      "tryLabel": "Try a sample first",
+      "trySub": "Hamlet, Act III Scene 1 — ready to rehearse"
+    },
+    "sort": {
+      "recent": "Recent",
+      "title": "Title"
+    },
+    "streak": "days"
+  },
+  "account": {
+    "title": "Account",
+    "crumb": "Account",
+    "editProfile": "Edit profile",
+    "language": "Interface language",
+    "languageValue": "English",
+    "password": "Password",
+    "passwordValue": "Last changed 3 months ago",
+    "signInMethods": "Sign-in methods",
+    "google": "Google",
+    "googleConnected": "Connected · last used",
+    "googleNotConnected": "Not connected",
+    "apple": "Apple",
+    "appleNotConnected": "Not connected",
+    "emailPassword": "Email & password",
+    "emailPasswordSet": "Set",
+    "deleteTitle": "Delete account",
+    "deleteSubtitle": "Scripts and progress are erased. No copies are kept.",
+    "deleteButton": "Delete…",
+    "signOut": "Sign out"
+  }
+}

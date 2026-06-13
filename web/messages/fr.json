@@ -1,0 +1,114 @@
+{
+  "nav": {
+    "signIn": "Se connecter",
+    "getStarted": "Commencer",
+    "toggleTheme": "Changer le thème",
+    "toggleLocale": "EN"
+  },
+  "marketing": {
+    "hero": {
+      "eyebrow": "le souffleur · the prompter",
+      "headline": "Apprenez vos textes,",
+      "headlineItalic": "plus vite.",
+      "subhead": "Importez un script, choisissez votre rôle, et répétez avec des partenaires IA. Souffleur vous écoute, vous souffle quand vous bloquez, et vous dit exactement quelles répliques retravailler.",
+      "cta": "Commencer gratuitement",
+      "ctaSub": "ou",
+      "ctaSignIn": "Se connecter",
+      "feature1": "Importez un PDF — on extrait la distribution, les répliques, les didascalies",
+      "feature2": "Partenaires IA avec des voix que vous choisissez",
+      "feature3": "Le mode Quiz teste la mémorisation, pas la reconnaissance"
+    },
+    "footer": {
+      "tagline": "souffleur.ai — connaître ses textes, pas juste les reconnaître.",
+      "terms": "CGU",
+      "privacy": "Confidentialité"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "eyebrow": "Connexion",
+      "headline": "Bon retour",
+      "headlineItalic": "parmi nous.",
+      "subhead": "Le souffleur est prêt quand vous l'êtes. Reprenez exactement là où vous en étiez.",
+      "google": "Continuer avec Google",
+      "or": "ou",
+      "emailLabel": "E-mail",
+      "passwordLabel": "Mot de passe",
+      "forgot": "Oublié ?",
+      "submit": "Se connecter",
+      "noAccount": "Nouveau sur Souffleur ?",
+      "createAccount": "Créer un compte",
+      "lastUsed": "Dernière connexion",
+      "aside": "Pièces du domaine public incluses — Molière, Tchekhov, Ibsen. Importez vos propres PDF quand vous voulez."
+    },
+    "signUp": {
+      "eyebrow": "Créer un compte",
+      "headline": "Apprenez vos textes",
+      "headlineItalic": "plus vite.",
+      "subhead": "Importez un script, distribuez vos partenaires, et commencez une lecture en quelques minutes.",
+      "google": "Continuer avec Google",
+      "or": "ou",
+      "emailLabel": "E-mail",
+      "emailPlaceholder": "vous@theatre.fr",
+      "passwordLabel": "Mot de passe",
+      "passwordPlaceholder": "au moins 10 caractères",
+      "submit": "Créer un compte",
+      "terms": "En continuant, vous acceptez les",
+      "termsLink": "CGU",
+      "and": "et la",
+      "privacyLink": "politique de confidentialité",
+      "haveAccount": "Vous avez déjà un compte ?",
+      "signIn": "Se connecter",
+      "aside": "Gratuit pour commencer — sans carte, sans crédits. Vos scripts vous appartiennent et ne sont jamais partagés."
+    }
+  },
+  "library": {
+    "title": "Votre bibliothèque",
+    "subtitle": "pièces · répété récemment",
+    "searchPlaceholder": "Rechercher une pièce",
+    "write": "Écrire",
+    "import": "Importer un PDF",
+    "dropHint": "Déposez un PDF n'importe où pour commencer",
+    "offBook": "% hors texte",
+    "asRole": "Vous jouez",
+    "lastPracticed": "Répété",
+    "processing": "En cours",
+    "processingHint": "Analyse du PDF en cours — vous pouvez quitter cette page.",
+    "attentionBadge": "À vérifier",
+    "attention": "Import terminé —",
+    "reviewEditor": "Vérifier dans l'éditeur",
+    "empty": {
+      "headline": "Apprenez vos textes",
+      "headlineItalic": "hors texte.",
+      "subhead": "Importez un script, choisissez votre rôle, et répétez avec des partenaires IA.",
+      "tryLabel": "Essayez un exemple",
+      "trySub": "Hamlet, Acte III Scène 1 — prêt à répéter"
+    },
+    "sort": {
+      "recent": "Récent",
+      "title": "Titre"
+    },
+    "streak": "jours"
+  },
+  "account": {
+    "title": "Compte",
+    "crumb": "Compte",
+    "editProfile": "Modifier le profil",
+    "language": "Langue de l'interface",
+    "languageValue": "Français",
+    "password": "Mot de passe",
+    "passwordValue": "Modifié il y a 3 mois",
+    "signInMethods": "Méthodes de connexion",
+    "google": "Google",
+    "googleConnected": "Connecté · dernière utilisation",
+    "googleNotConnected": "Non connecté",
+    "apple": "Apple",
+    "appleNotConnected": "Non connecté",
+    "emailPassword": "E-mail & mot de passe",
+    "emailPasswordSet": "Configuré",
+    "deleteTitle": "Supprimer le compte",
+    "deleteSubtitle": "Scripts et progression effacés. Aucune copie conservée.",
+    "deleteButton": "Supprimer…",
+    "signOut": "Se déconnecter"
+  }
+}

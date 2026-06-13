@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+/* ─── Souffleur Design Tokens · Prompter direction ─── */
+:root,
+[data-theme="light"] {
+  --bg: #f7f3ec;
+  --bg-elev: #fdfaf3;
+  --surface: #ffffff;
+  --ink: #1a1814;
+  --ink-muted: #6b655a;
+  --ink-faint: #a8a193;
+  --rule: #e5dfd0;
+  --line: #ece5d3;
+  --highlight: #ffe68c;
+  --highlight-soft: #fff4c2;
+  --accent: #c48a17;
+  --accent-soft: color-mix(in oklch, #c48a17 12%, #f7f3ec);
+  --accent-faint: color-mix(in oklch, #c48a17 5%, #f7f3ec);
+  --rose: #b24548;
+  --moss: #4a6b3a;
+  --inkblue: #2a4878;
+  --shadow-sm: 0 1px 2px rgba(60, 40, 20, 0.06);
+  --shadow-md: 0 2px 8px rgba(60, 40, 20, 0.08), 0 1px 2px rgba(60, 40, 20, 0.04);
+  --shadow-lg: 0 8px 24px rgba(60, 40, 20, 0.1), 0 2px 4px rgba(60, 40, 20, 0.05);
+}
+
+[data-theme="dark"] {
+  --bg: #1a1815;
+  --bg-elev: #24211c;
+  --surface: #2c2924;
+  --ink: #f3ece0;
+  --ink-muted: #9b9485;
+  --ink-faint: #5f594e;
+  --rule: #3a362f;
+  --line: #33302a;
+  --highlight: #d9b25a;
+  --highlight-soft: #3a3020;
+  --accent: #e0a948;
+  --accent-soft: color-mix(in oklch, #e0a948 20%, #1a1815);
+  --accent-faint: color-mix(in oklch, #e0a948 8%, #1a1815);
+  --rose: #d67a7d;
+  --moss: #8faa6f;
+  --inkblue: #8ab0e2;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+:root {
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 10px;
+  --font-display: "Source Serif 4", Georgia, serif;
+  --font-body: "Inter Tight", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+}
+
+/* ─── Base styles ─── */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* ─── Tailwind theme bridge ─── */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elev: var(--bg-elev);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-rule: var(--rule);
+  --color-accent: var(--accent);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--rule);
+  border-radius: 999px;
+}
