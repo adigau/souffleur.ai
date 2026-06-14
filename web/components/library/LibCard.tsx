@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import Badge from "@/components/ui/Badge";
 import Progress from "@/components/ui/Progress";
 import Mark from "@/components/ui/Mark";
@@ -9,7 +10,7 @@ export interface Play {
   id: string;
   title: string;
   author?: string;
-  role?: string;
+  role?: string[];
   off_book_pct?: number;
   last_practiced?: string | null;
   state: "ready" | "processing" | "attention";
@@ -93,11 +94,11 @@ export default function LibCard({ play, compact = false }: LibCardProps) {
 
     return (
       <div style={{ marginTop: 14 }}>
-        {play.role && (
+        {play.role && play.role.length > 0 && (
           <div style={{ fontSize: 12.5, color: "var(--ink-muted)", marginBottom: 10 }}>
             {t("asRole")}{" "}
             <Mark>
-              <span style={{ fontWeight: 600, color: "var(--ink)" }}>{play.role}</span>
+              <span style={{ fontWeight: 600, color: "var(--ink)" }}>{play.role.join(", ")}</span>
             </Mark>
           </div>
         )}
@@ -127,7 +128,8 @@ export default function LibCard({ play, compact = false }: LibCardProps) {
   })();
 
   return (
-    <div
+    <Link
+      href={`/app/plays/${play.id}`}
       style={{
         background: "var(--surface)",
         border: "1px solid var(--rule)",
@@ -137,6 +139,9 @@ export default function LibCard({ play, compact = false }: LibCardProps) {
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
+        textDecoration: "none",
+        color: "inherit",
+        cursor: "pointer",
       }}
     >
       <div>
@@ -168,6 +173,6 @@ export default function LibCard({ play, compact = false }: LibCardProps) {
         </div>
       </div>
       {body}
-    </div>
+    </Link>
   );
 }

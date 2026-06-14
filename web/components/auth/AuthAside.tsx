@@ -1,3 +1,4 @@
+import Link from "next/link";
 import AppIcon from "@/components/ui/AppIcon";
 import Wordmark from "@/components/ui/Wordmark";
 import Mark from "@/components/ui/Mark";
@@ -32,18 +33,20 @@ export default function AuthAside({ foot }: AuthAsideProps) {
       }}
     >
       {/* Brand */}
-      <div
+      <Link
+        href="/"
         style={{
           display: "flex",
           alignItems: "center",
           gap: 12,
           position: "relative",
           zIndex: 2,
+          textDecoration: "none",
         }}
       >
         <AppIcon size={34} />
         <Wordmark size={20} />
-      </div>
+      </Link>
 
       {/* Script card */}
       <div

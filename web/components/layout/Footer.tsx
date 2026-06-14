@@ -21,7 +21,9 @@ export default function Footer() {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <Wordmark size={15} />
+        <Link href={`${prefix}/`} style={{ textDecoration: "none" }}>
+          <Wordmark size={15} />
+        </Link>
         <span
           style={{
             fontSize: 12,

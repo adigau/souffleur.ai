@@ -35,7 +35,7 @@ export async function getUserPlays(): Promise<Play[]> {
     id: row.id,
     title: row.plays.title,
     author: row.plays.author,
-    role: row.role,
+    role: (row.role as string[] | null) ?? undefined,
     off_book_pct: row.off_book_pct ?? 0,
     last_practiced: row.last_practiced,
     state: row.state ?? "ready",

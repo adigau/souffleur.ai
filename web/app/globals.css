@@ -98,3 +98,9 @@ body {
   background: var(--rule);
   border-radius: 999px;
 }
+
+/* ─── Actor note button — show on parent hover ─── */
+*:hover > .note-btn,
+*:focus-within > .note-btn {
+  opacity: 1 !important;
+}

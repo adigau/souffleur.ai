@@ -26,7 +26,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Souffleur — Know your lines, not just recognise them",
+  title: "souffleur.co — Know your lines, not just recognise them",
   description:
     "A digital prompter for stage actors. Import a script, cast AI scene partners, and drill your lines until you're truly off book.",
 };

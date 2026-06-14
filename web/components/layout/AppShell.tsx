@@ -45,7 +45,7 @@ export default function AppShell({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Link href={`${prefix}/app`} style={{ textDecoration: "none" }}>
+          <Link href={`${prefix}/`} style={{ textDecoration: "none" }}>
             <Wordmark size={17} />
           </Link>
           {crumb && (

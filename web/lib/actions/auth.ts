@@ -24,16 +24,21 @@ export async function signUpWithEmail(formData: FormData) {
   const locale = (formData.get("locale") as string) || "en";
   const prefix = locale === "fr" ? "/fr" : "";
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=${prefix}/app`,
     },
   });
   if (error) {
     return redirect(`${prefix}/signup?error=${encodeURIComponent(error.message)}`);
   }
+  // Session is null when email confirmation is required — show "check inbox" screen
+  if (!data.session) {
+    return redirect(`${prefix}/signup/confirm?email=${encodeURIComponent(email)}`);
+  }
+  // Email confirmation disabled in Supabase — log straight in
   redirect(`${prefix}/app`);
 }
 

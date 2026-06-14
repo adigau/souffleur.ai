@@ -24,6 +24,13 @@ function isAppPath(pathname: string): boolean {
 }
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Skip intl + auth middleware for API routes and auth callback
+  if (pathname.startsWith("/api/") || pathname.startsWith("/auth/")) {
+    return NextResponse.next();
+  }
+
   // Let next-intl handle locale routing first
   const response = intlMiddleware(request);
 

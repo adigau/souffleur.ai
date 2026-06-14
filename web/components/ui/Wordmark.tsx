@@ -1,9 +1,9 @@
 interface WordmarkProps {
   size?: number;
-  showDotAi?: boolean;
+  showDomain?: boolean;
 }
 
-export default function Wordmark({ size = 24, showDotAi = true }: WordmarkProps) {
+export default function Wordmark({ size = 24, showDomain = true }: WordmarkProps) {
   return (
     <span
       style={{
@@ -19,7 +19,7 @@ export default function Wordmark({ size = 24, showDotAi = true }: WordmarkProps)
       }}
     >
       <span>souffleur</span>
-      {showDotAi && (
+      {showDomain && (
         <span
           style={{
             color: "var(--accent)",
@@ -28,7 +28,7 @@ export default function Wordmark({ size = 24, showDotAi = true }: WordmarkProps)
             fontFamily: "var(--font-body)",
           }}
         >
-          .ai
+          .co
         </span>
       )}
     </span>

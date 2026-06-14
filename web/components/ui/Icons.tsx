@@ -89,7 +89,7 @@ export const Sun = ({ size = 16, color = "currentColor" }: IconProps) => (
 
 export const Moon = ({ size = 16, color = "currentColor" }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
-    <path d="M13.5 10A5.5 5.5 0 016 2.5a6 6 0 100 11 5.47 5.47 0 007.5-3.5z" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M8 2a4 4 0 0 0 6 6 6 6 0 1 1-6-6z" fill={color} />
   </svg>
 );
 
@@ -116,6 +116,25 @@ export const Warn = ({ size = 16, color = "currentColor" }: IconProps) => (
 export const Chev = ({ size = 16, color = "currentColor" }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
     <path d="M4 6l4 4 4-4" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const Bookmark = ({ size = 16, color = "currentColor" }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+    <path d="M4 2h8v13l-4-2.8L4 15V2z" stroke={color} strokeWidth="1.4" strokeLinejoin="round" />
+  </svg>
+);
+
+export const BookmarkFilled = ({ size = 16, color = "currentColor" }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+    <path d="M4 2h8v13l-4-2.8L4 15V2z" fill={color} />
+  </svg>
+);
+
+export const NotePen = ({ size = 16, color = "currentColor" }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+    <path d="M2 11.5V14h2.5l6.6-6.6-2.5-2.5L2 11.5z" stroke={color} strokeWidth="1.3" strokeLinejoin="round" />
+    <path d="M10.6 4.9l1-1a1 1 0 011.4 1.4l-1 1-2.4-2.4z" stroke={color} strokeWidth="1.3" strokeLinejoin="round" />
   </svg>
 );
 
