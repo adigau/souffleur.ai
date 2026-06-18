@@ -10,6 +10,7 @@ import PlayDetailsPanel, { type PlayAnalysis } from "./PlayDetailsPanel";
 import PlayChatPanel from "./PlayChatPanel";
 import { PlayRolesProvider, usePlayRoles } from "@/contexts/PlayRolesContext";
 import { SceneNavProvider, useSceneNav } from "@/contexts/SceneNavContext";
+import { CoachProvider } from "@/contexts/CoachContext";
 import { createClient } from "@/lib/supabase/client";
 
 function langDisplayName(code: string): string {
@@ -379,7 +380,9 @@ function PlayShellInner({
 
       {/* Content */}
       <div style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden" }}>
-        {children}
+        <CoachProvider openCoach={() => setChatOpen(true)}>
+          {children}
+        </CoachProvider>
         {chatOpen && activeTab === "read" && (
           <PlayChatPanel
             userPlayId={userPlayId}

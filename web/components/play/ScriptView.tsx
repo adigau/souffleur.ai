@@ -6,6 +6,7 @@ import { Mic, Chev, NotePen, Sparkle, X as XIcon, ArrowRight } from "@/component
 import { upsertLineNote } from "@/lib/actions/plays";
 import { usePlayRoles } from "@/contexts/PlayRolesContext";
 import { useSceneNav } from "@/contexts/SceneNavContext";
+import { useCoach } from "@/contexts/CoachContext";
 
 // Re-export shared types from the server-safe types module (no "use client" boundary there)
 export type { ParatextType, LineSegment, ContentEntry } from "@/lib/script-types";
@@ -594,6 +595,7 @@ export default function ScriptView({
   const t = useTranslations("play");
   const { roles } = usePlayRoles();
   const { requestedSceneId, clearSceneJump, setCurrentReadSceneTitle } = useSceneNav();
+  const { openCoach } = useCoach();
   const locale = useLocale();
   const prefix = locale === "fr" ? "/fr" : "";
 
@@ -998,8 +1000,29 @@ export default function ScriptView({
           )}
         </button>
 
-        {/* Practice CTA */}
+        {/* Practice + Coach CTAs */}
         <div style={{ display: "flex", alignItems: "center", padding: "0 10px", flexShrink: 0, gap: 8 }}>
+          <button
+            onClick={openCoach}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 14px",
+              background: "none",
+              border: "1px solid color-mix(in srgb, var(--accent) 40%, transparent)",
+              color: "var(--accent)",
+              borderRadius: 999,
+              fontSize: 13,
+              fontWeight: 600,
+              fontFamily: "var(--font-body)",
+              whiteSpace: "nowrap",
+              cursor: "pointer",
+            }}
+          >
+            <Sparkle size={12} color="currentColor" />
+            {t("toolbar.coach")}
+          </button>
           <a
             href={`${prefix}/app/plays/${userPlayId}?tab=practice&scene=${currentScene.id}`}
             style={{
@@ -1018,7 +1041,7 @@ export default function ScriptView({
             }}
           >
             <Mic size={13} color="var(--bg)" />
-            Practice
+            {t("tabs.practice")}
           </a>
         </div>
 
