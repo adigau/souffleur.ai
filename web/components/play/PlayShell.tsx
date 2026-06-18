@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { X, Book, Mic, Chev, Pencil, Sparkle, Chat } from "@/components/ui/Icons";
 import ThemeToggle from "@/components/layout/ThemeToggle";
@@ -70,6 +70,7 @@ function PlayShellInner({
 }: PlayShellProps) {
   const { roles } = usePlayRoles();
   const { currentReadSceneTitle } = useSceneNav();
+  const t = useTranslations("play");
   const locale = useLocale();
   const router = useRouter();
   const prefix = locale === "fr" ? "/fr" : "";
@@ -257,7 +258,7 @@ function PlayShellInner({
                   borderBottom: "1px solid var(--rule)",
                 }}
               >
-                Switch play
+                {t("toolbar.switchPlay")}
               </div>
               {allPlays.map((p) => (
                 <Link
@@ -279,7 +280,7 @@ function PlayShellInner({
                   {p.title}
                   {p.id === userPlayId && (
                     <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, marginLeft: 8, color: "var(--ink-faint)" }}>
-                      current
+                      {t("toolbar.currentBadge")}
                     </span>
                   )}
                 </Link>
@@ -301,14 +302,14 @@ function PlayShellInner({
             flexShrink: 0,
           }}
         >
-          {tab("read", <Book size={13} color="currentColor" />, "Read")}
-          {tab("practice", <Mic size={13} color="currentColor" />, "Practice")}
+          {tab("read", <Book size={13} color="currentColor" />, t("tabs.read"))}
+          {tab("practice", <Mic size={13} color="currentColor" />, t("tabs.practice"))}
         </div>
 
         {canEdit && (
           <a
             href={`${prefix}/app/plays/${userPlayId}/edit${currentReadSceneTitle ? `?section=${encodeURIComponent(currentReadSceneTitle)}` : ""}`}
-            title="Edit script"
+            title={t("toolbar.editScript")}
             style={{
               display: "flex",
               alignItems: "center",
@@ -332,7 +333,7 @@ function PlayShellInner({
           {activeTab === "read" && (
             <button
               onClick={() => setChatOpen((v) => !v)}
-              title="Theatre coach"
+              title={t("toolbar.coach")}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -351,7 +352,7 @@ function PlayShellInner({
           )}
           <button
             onClick={() => setDetailsOpen(true)}
-            title={analysisState === "processing" ? "AI analysis in progress…" : "Play details"}
+            title={analysisState === "processing" ? t("toolbar.analysing") : t("toolbar.details")}
             className={analysisState === "processing" ? "souffleur-sparkle-processing" : undefined}
             style={{
               display: "flex",

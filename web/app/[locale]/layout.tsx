@@ -1,6 +1,5 @@
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getLocale } from "next-intl/server";
-import { ThemeProvider } from "next-themes";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 
@@ -24,10 +23,8 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <ThemeProvider attribute="data-theme" defaultTheme="system" enableSystem>
-      <NextIntlClientProvider locale={locale} messages={messages}>
-        {children}
-      </NextIntlClientProvider>
-    </ThemeProvider>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      {children}
+    </NextIntlClientProvider>
   );
 }

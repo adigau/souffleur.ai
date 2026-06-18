@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useTransition, useCallback, useEffect } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { X, Chev } from "@/components/ui/Icons";
 import { savePlayScript, deletePlay } from "@/lib/actions/plays";
 import type { SsfError } from "@/lib/script-format";
@@ -104,6 +104,7 @@ function Toast({ message, kind, duration, onDone }: { message: string; kind: Toa
 // ─── EditShell ────────────────────────────────────────────────────────────────
 export default function EditShell({ userPlayId, playTitle, initialText, initialSection }: EditShellProps) {
   const locale = useLocale();
+  const t = useTranslations("play");
   const prefix = locale === "fr" ? "/fr" : "";
 
   const [title, setTitle] = useState(playTitle);
@@ -149,18 +150,18 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
           setErrors(result.errors);
           if (result.ok) {
             toastKey.current += 1;
-            setToast({ message: "Saved", kind: "success", duration: 999999, id: toastKey.current });
+            setToast({ message: t("editor.saved"), kind: "success", duration: 999999, id: toastKey.current });
             setTimeout(() => {
               toastKey.current += 1;
-              setToast({ message: "✨ Analysing your play…", kind: "success", id: toastKey.current });
+              setToast({ message: t("editor.analysingPlay"), kind: "success", id: toastKey.current });
             }, 1500);
           } else {
             const hasHardErrors = result.errors.some((e) => e.severity === "error");
             toastKey.current += 1;
             setToast({
               message: hasHardErrors
-                ? "Fix errors before saving"
-                : result.dbError ?? "Save failed — check your connection",
+                ? t("editor.fixErrors")
+                : result.dbError ?? t("editor.saveFailed"),
               kind: "error",
               id: toastKey.current,
             });
@@ -228,7 +229,7 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Play title"
+            placeholder={t("editor.titlePlaceholder")}
             style={{
               fontFamily: "var(--font-display)",
               fontSize: 15,
@@ -256,7 +257,7 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           <button
             onClick={() => setConfirmDelete(true)}
-            title="Delete play"
+            title={t("editor.deleteTip")}
             style={{
               padding: "5px 10px",
               borderRadius: "var(--radius-md)",
@@ -291,7 +292,7 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
               transition: "opacity 0.15s",
             }}
           >
-            {isSaving ? "Saving…" : "Save"}
+            {isSaving ? t("editor.saving") : t("editor.save")}
           </button>
         </div>
       </div>
@@ -323,10 +324,10 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
             }}
           >
             <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500, marginBottom: 10 }}>
-              Delete "{title}"?
+              {t("editor.deleteTitle", { title })}
             </div>
             <div style={{ fontSize: 14, color: "var(--ink-muted)", lineHeight: 1.6, marginBottom: 24 }}>
-              This permanently deletes the play and all its scenes. This cannot be undone.
+              {t("editor.deleteWarning")}
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button
@@ -342,7 +343,7 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
                   cursor: "pointer",
                 }}
               >
-                Cancel
+                {t("editor.cancel")}
               </button>
               <button
                 onClick={async () => {
@@ -367,7 +368,7 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
                   cursor: "pointer",
                 }}
               >
-                Delete permanently
+                {t("editor.deleteConfirm")}
               </button>
             </div>
           </div>
@@ -386,7 +387,7 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
           <div ref={outlineRef} style={{ position: "relative", flexShrink: 0 }}>
           <button
             onClick={() => canNavigate && setOutlineOpen((v) => !v)}
-            title={canNavigate ? "Jump to a section" : undefined}
+            title={canNavigate ? t("editor.jumpToSection") : undefined}
             style={{
               flexShrink: 0,
               height: 60,
@@ -489,7 +490,7 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
             {!hasSection && canNavigate && (
               <div style={{ display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
                 <span style={{ fontFamily: "var(--font-display)", fontSize: 13, fontStyle: "italic", color: "var(--ink-faint)" }}>
-                  Browse structure
+                  {t("editor.browseStructure")}
                 </span>
                 <span
                   style={{
@@ -534,7 +535,7 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
                   borderBottom: "1px solid var(--rule)",
                 }}
               >
-                Structure
+                {t("editor.structure")}
               </div>
               {headings.map((h) => {
                 const sectionStats = computeSectionStats(statsText, headings, h.lineNum);
@@ -644,20 +645,20 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           {errorCount === 0 && warnCount === 0 ? (
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink-faint)" }}>
-              ✓ no issues
+              {t("editor.noIssues")}
             </span>
           ) : (
             <>
               {errorCount > 0 && (
                 <span style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 500, color: "var(--rose)" }}>
                   <span style={{ fontSize: 8 }}>●</span>
-                  {errorCount} error{errorCount > 1 ? "s" : ""}
+                  {t("editor.errors", { count: errorCount })}
                 </span>
               )}
               {warnCount > 0 && (
                 <span style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 500, color: "var(--accent)" }}>
                   <span style={{ fontSize: 9 }}>▲</span>
-                  {warnCount} warning{warnCount > 1 ? "s" : ""}
+                  {t("editor.warnings", { count: warnCount })}
                 </span>
               )}
             </>
@@ -674,14 +675,14 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
             scrollbarWidth: "none",
           }}
         >
-          {[
-            ["#", "heading 1"],
-            ["##", "heading 2"],
-            ["@CHARACTER", "dialogue"],
-            ["(text)", "direction"],
-            ["---", "curtain"],
-            ["// ...", "comment"],
-          ].map(([syntax, label]) => (
+          {([
+            ["#", t("editor.syntax.heading1")],
+            ["##", t("editor.syntax.heading2")],
+            ["@CHARACTER", t("editor.syntax.dialogue")],
+            ["(text)", t("editor.syntax.direction")],
+            ["---", t("editor.syntax.curtain")],
+            ["// ...", t("editor.syntax.comment")],
+          ] as [string, string][]).map(([syntax, label]) => (
             <span key={syntax} style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
               <code
                 style={{

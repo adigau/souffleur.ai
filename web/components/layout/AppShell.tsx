@@ -3,7 +3,6 @@ import { useLocale } from "next-intl";
 import Wordmark from "@/components/ui/Wordmark";
 import { Flame } from "@/components/ui/Icons";
 import ThemeToggle from "./ThemeToggle";
-import LocaleToggle from "./LocaleToggle";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -81,7 +80,6 @@ export default function AppShell({
               {streak}
             </div>
           )}
-          <LocaleToggle />
           <ThemeToggle />
           <Link
             href={`${prefix}/app/account`}

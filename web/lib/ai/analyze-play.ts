@@ -75,9 +75,14 @@ Rules for detected_language_options:
 - Use ISO 639-1 codes (en, fr, de, es, it, pt, ru, nl, pl, sv, ja, zh, ar, etc.)
 - If the script is clearly one language, give it confidence 0.97+
 
+Rules for language:
+- Write description, summary, and character description fields in the same language as the script
+- If the script is in French, write all text fields in French; if English, in English; etc.
+
 Rules for characters:
 - Include ALL characters: both those with spoken lines AND those only mentioned in dialogue
-- Set has_dialogue: true for characters who speak; false for characters only referenced/mentioned
+- A character has has_dialogue: true if and only if their name appears as a speaker cue (e.g. "CHARACTER: speech text") in the script — even if they are also mentioned by other characters. Never mark a speaking character as false.
+- has_dialogue: false is reserved strictly for characters who are referenced or mentioned in dialogue but have zero lines of their own
 - Use exact character names as they appear (uppercase)
 - age_range must be one of the five exact values
 

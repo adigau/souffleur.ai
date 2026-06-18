@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { usePlayRoles } from "@/contexts/PlayRolesContext";
 import type { ContentEntry } from "@/lib/script-types";
 import { Chev } from "@/components/ui/Icons";
@@ -130,6 +130,7 @@ export default function PracticeSession({
   language,
 }: PracticeSessionProps) {
   const locale = useLocale();
+  const t = useTranslations("play");
   const { roles } = usePlayRoles();
   // Play-level language overrides locale; fall back to locale if not set
   const lang =
@@ -610,7 +611,7 @@ export default function PracticeSession({
                   marginBottom: 20,
                 }}
               >
-                — end of scene —
+                {t("practice.endOfScene")}
               </div>
               <button
                 onClick={restart}
@@ -626,7 +627,7 @@ export default function PracticeSession({
                   cursor: "pointer",
                 }}
               >
-                Run it again
+                {t("practice.runAgain")}
               </button>
             </div>
           )}
@@ -660,7 +661,7 @@ export default function PracticeSession({
               cursor: "pointer",
             }}
           >
-            ↩ Restart
+            {t("practice.restart")}
           </button>
         )}
 
@@ -678,7 +679,7 @@ export default function PracticeSession({
               cursor: "pointer",
             }}
           >
-            {paused ? "▶ Resume" : "⏸ Pause"}
+            {paused ? t("practice.resume") : t("practice.pause")}
           </button>
         )}
 
@@ -699,7 +700,7 @@ export default function PracticeSession({
               cursor: "pointer",
             }}
           >
-            {!started ? "▶  Start" : "Skip →"}
+            {!started ? t("practice.start") : t("practice.skip")}
           </button>
         )}
 
@@ -718,7 +719,7 @@ export default function PracticeSession({
               cursor: "pointer",
             }}
           >
-            Next scene →
+            {t("practice.nextScene")}
           </button>
         )}
       </div>

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/lib/actions/auth";
 import Button from "@/components/ui/Button";
 import MonoTag from "@/components/ui/MonoTag";
+import LocaleSelect from "@/components/layout/LocaleSelect";
 import { Check, Chev } from "@/components/ui/Icons";
 
 export default async function AccountPage() {
@@ -131,7 +132,7 @@ export default async function AccountPage() {
             overflow: "hidden",
           }}
         >
-          {row(t("language"), t("languageValue"))}
+          <LocaleSelect />
           <div style={{ borderTop: "1px solid var(--line)" }}>
             {row(t("password"), t("passwordValue"))}
           </div>

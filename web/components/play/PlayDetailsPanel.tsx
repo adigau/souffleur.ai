@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useTransition } from "react";
+import { useTranslations, useLocale } from "next-intl";
 import { Sparkle, X, Chev, Check, Pencil } from "@/components/ui/Icons";
 import { toggleUserPlayRole } from "@/lib/actions/plays";
 import { usePlayRoles } from "@/contexts/PlayRolesContext";
@@ -53,6 +54,20 @@ const AGE_RANGE_LABELS: Record<string, string> = {
   child: "child", teen: "teen", young_adult: "young adult", adult: "adult", elderly: "elderly",
 };
 
+const GENDER_OPTIONS = [
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+  { value: "neutral", label: "Neutral / Unknown" },
+];
+
+const AGE_RANGE_OPTIONS = [
+  { value: "child", label: "Child" },
+  { value: "teen", label: "Teen" },
+  { value: "young_adult", label: "Young adult" },
+  { value: "adult", label: "Adult" },
+  { value: "elderly", label: "Elderly" },
+];
+
 const PLAY_TYPES = [
   "tragedy", "comedy", "tragicomedy", "drama",
   "farce", "musical", "melodrama", "historical", "thriller", "other",
@@ -69,13 +84,14 @@ function langDisplay(code: string): string {
 
 // Shows a value as text with a subtle pencil icon; clicking pencil opens a select or input
 function EditableValue({
-  value, options, onSave, display, placeholder,
+  value, options, onSave, display, placeholder, editTitle,
 }: {
   value: string;
   options?: { value: string; label: string }[];
   onSave: (v: string) => void;
   display?: (v: string) => string;
   placeholder?: string;
+  editTitle?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -140,7 +156,7 @@ function EditableValue({
       </span>
       <button
         onClick={() => setEditing(true)}
-        title="Edit"
+        title={editTitle}
         style={{
           background: "none", border: "none", cursor: "pointer",
           color: "var(--ink-faint)", padding: 2, display: "flex", alignItems: "center", opacity: 0.5,
@@ -226,6 +242,8 @@ export default function PlayDetailsPanel({
   initialAnalysisState?: "ready" | "processing" | "attention";
   onClose: () => void;
 }) {
+  const t = useTranslations("play");
+  const uiLocale = useLocale();
   const { roles, setRoles } = usePlayRoles();
   const { requestSceneJump } = useSceneNav();
   const [analysis, setAnalysis] = useState<PlayAnalysis | null>(initialAnalysis);
@@ -233,6 +251,7 @@ export default function PlayDetailsPanel({
   const [expandedChars, setExpandedChars] = useState<Set<string>>(new Set());
   const [hoveredRole, setHoveredRole] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [regenSet, setRegenSet] = useState<Set<string>>(new Set());
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -289,13 +308,42 @@ export default function PlayDetailsPanel({
   }, [userPlayId]);
 
   function saveCharProfile(name: string, field: keyof CharacterProfile, value: string) {
-    if (!analysis) return;
-    const profiles = { ...(analysis.character_profiles ?? {}) };
-    profiles[name] = {
-      ...(profiles[name] ?? { gender: "neutral", age_range: "adult", description: "", has_dialogue: true }),
-      [field]: value,
-    };
-    save({ character_profiles: profiles });
+    setAnalysis((prev) => {
+      if (!prev) return prev;
+      const profiles = { ...(prev.character_profiles ?? {}) };
+      const existingKey = Object.keys(profiles).find((k) => k.toLowerCase() === name.toLowerCase()) ?? name;
+      profiles[existingKey] = {
+        ...(profiles[existingKey] ?? { gender: "neutral", age_range: "adult", description: "", has_dialogue: true }),
+        [field]: value,
+      };
+      // Debounce the API write with the freshly-computed profiles
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        fetch(`/api/plays/${userPlayId}/analysis`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ character_profiles: profiles }),
+        }).catch(console.error);
+      }, 400);
+      return { ...prev, character_profiles: profiles };
+    });
+  }
+
+  async function regenDescription(ch: string, gender: string, age_range: string) {
+    setRegenSet((prev) => new Set([...prev, ch]));
+    try {
+      const res = await fetch(`/api/plays/${userPlayId}/regen-char-description`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ characterName: ch, gender, age_range, uiLocale }),
+      });
+      if (res.ok) {
+        const { description } = await res.json();
+        saveCharProfile(ch, "description", description);
+      }
+    } finally {
+      setRegenSet((prev) => { const next = new Set(prev); next.delete(ch); return next; });
+    }
   }
 
   function toggleRole(ch: string) {
@@ -317,9 +365,19 @@ export default function PlayDetailsPanel({
     return PLAY_TYPES.map((t) => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) }));
   }
 
+  const COMMON_LANG_CODES = [
+    "fr", "en", "de", "es", "it", "pt", "ru", "nl",
+    "pl", "sv", "da", "no", "fi", "cs", "hu", "ro",
+    "el", "tr", "ar", "ja", "zh", "ko", "la",
+  ];
+
   function buildLangOptions(opts: ConfidenceOption[] | null) {
-    if (!opts || opts.length === 0) return null;
-    return opts.map((o) => ({ value: o.value, label: langDisplay(o.value) }));
+    const detected = (opts ?? []).map((o) => ({ value: o.value, label: langDisplay(o.value) }));
+    const detectedSet = new Set(detected.map((o) => o.value));
+    const rest = COMMON_LANG_CODES
+      .filter((c) => !detectedSet.has(c))
+      .map((c) => ({ value: c, label: langDisplay(c) }));
+    return [...detected, ...rest];
   }
 
   const otherPlayers = new Map<string, { displayName: string; email: string }>();
@@ -336,14 +394,20 @@ export default function PlayDetailsPanel({
     return (charStats[b]?.words ?? 0) - (charStats[a]?.words ?? 0);
   });
 
-  const speakingSet = new Set(characters);
-  // Show any character the AI knows about that isn't in the actual script lines.
-  // We don't require has_dialogue === false because the speaking set is the ground truth.
+  const speakingSetLower = new Set(characters.map((c) => c.toLowerCase()));
+  // Case-insensitive: AI may use "Pierre" while the script has "PIERRE".
   const mentionedChars: Array<[string, CharacterProfile]> = analysis?.character_profiles
     ? Object.entries(analysis.character_profiles).filter(
-        ([name]) => !speakingSet.has(name)
+        ([name]) => !speakingSetLower.has(name.toLowerCase())
       )
     : [];
+
+  const profilesLower: Map<string, CharacterProfile> = new Map(
+    Object.entries(analysis?.character_profiles ?? {}).map(([k, v]) => [k.toLowerCase(), v])
+  );
+  function getProfile(name: string): CharacterProfile | undefined {
+    return analysis?.character_profiles?.[name] ?? profilesLower.get(name.toLowerCase());
+  }
 
   function withYouCount(ch: string): number {
     return roles.reduce((sum, role) => sum + (adjacency[role]?.[ch] ?? 0), 0);
@@ -370,14 +434,16 @@ export default function PlayDetailsPanel({
             fontFamily: "var(--font-mono)", fontSize: 11, textTransform: "uppercase",
             letterSpacing: 1.2, color: "var(--ink)", fontWeight: 600, flex: 1,
           }}>
-            Play details
+            {t("details.title")}
           </span>
           {isProcessing && (
             <span style={{
-              fontFamily: "var(--font-mono)", fontSize: 9.5, color: "var(--accent)",
+              fontFamily: "var(--font-mono)", fontSize: 9.5,
               background: "var(--accent-faint)", padding: "2px 7px",
               borderRadius: "var(--radius-sm)", letterSpacing: 0.5,
-            }}>Analysing…</span>
+            }}>
+              <span className="souffleur-ai-text-shimmer">{t("details.analysing")}</span>
+            </span>
           )}
           <button onClick={onClose} style={{
             background: "none", border: "none", cursor: "pointer",
@@ -393,29 +459,29 @@ export default function PlayDetailsPanel({
           {/* ─── OVERVIEW ─── */}
           <div>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, textTransform: "uppercase", letterSpacing: 1.5, color: "var(--ink-faint)", marginBottom: 14 }}>
-              Overview
+              {t("details.overview")}
             </div>
 
             {showOverviewSkeleton ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
                 <div style={{ display: "flex", gap: 24 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={fieldLabel}>Type</div>
+                    <div style={fieldLabel}>{t("details.type")}</div>
                     <ShimmerLine width={72} height={18} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={fieldLabel}>Language</div>
+                    <div style={fieldLabel}>{t("details.language")}</div>
                     <ShimmerLine width={80} height={18} />
                   </div>
                 </div>
                 <div>
-                  <div style={fieldLabel}>Description</div>
+                  <div style={fieldLabel}>{t("details.description")}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 5, paddingTop: 4 }}>
                     <ShimmerLine height={12} /><ShimmerLine width="80%" height={12} />
                   </div>
                 </div>
                 <div>
-                  <div style={fieldLabel}>Summary</div>
+                  <div style={fieldLabel}>{t("details.summary")}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 5, paddingTop: 4 }}>
                     <ShimmerLine height={12} /><ShimmerLine height={12} /><ShimmerLine width="70%" height={12} />
                   </div>
@@ -426,8 +492,8 @@ export default function PlayDetailsPanel({
                   border: "1px solid color-mix(in oklch, var(--accent) 20%, var(--rule))",
                 }}>
                   <Sparkle size={12} color="var(--accent)" />
-                  <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--accent)" }}>
-                    AI is analysing your play…
+                  <span className="souffleur-ai-text-shimmer" style={{ fontFamily: "var(--font-body)", fontSize: 12 }}>
+                    {t("details.analysisWaiting")}
                   </span>
                 </div>
               </div>
@@ -436,34 +502,36 @@ export default function PlayDetailsPanel({
                 {/* Type + Language as confident text values */}
                 <div style={{ display: "flex", gap: 24 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={fieldLabel}>Type</div>
+                    <div style={fieldLabel}>{t("details.type")}</div>
                     <EditableValue
                       value={analysis.play_type ?? ""}
                       options={buildTypeOptions(analysis.play_type_options ?? null)}
                       onSave={(v) => save({ play_type: v })}
-                      placeholder="Unknown"
+                      placeholder={t("details.unknown")}
+                      editTitle={t("details.edit")}
                     />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={fieldLabel}>Language</div>
+                    <div style={fieldLabel}>{t("details.language")}</div>
                     <EditableValue
                       value={analysis.detected_language ?? ""}
-                      options={buildLangOptions(analysis.detected_language_options ?? null) ?? undefined}
+                      options={buildLangOptions(analysis.detected_language_options ?? null)}
                       onSave={(v) => save({ detected_language: v } as any)}
                       display={langDisplay}
-                      placeholder="Unknown"
+                      placeholder={t("details.unknown")}
+                      editTitle={t("details.edit")}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <div style={fieldLabel}>Description</div>
-                  <EditableText value={analysis.description ?? ""} placeholder="Click to add a description…" onSave={(v) => save({ description: v })} multiline />
+                  <div style={fieldLabel}>{t("details.description")}</div>
+                  <EditableText value={analysis.description ?? ""} placeholder={t("details.addDescription")} onSave={(v) => save({ description: v })} multiline />
                 </div>
 
                 <div>
-                  <div style={fieldLabel}>Summary</div>
-                  <EditableText value={analysis.summary ?? ""} placeholder="Click to add a summary…" onSave={(v) => save({ summary: v })} multiline />
+                  <div style={fieldLabel}>{t("details.summary")}</div>
+                  <EditableText value={analysis.summary ?? ""} placeholder={t("details.addSummary")} onSave={(v) => save({ summary: v })} multiline />
                 </div>
               </div>
             ) : (
@@ -471,9 +539,9 @@ export default function PlayDetailsPanel({
                 fontFamily: "var(--font-display)", fontStyle: "italic", fontSize: 13,
                 color: "var(--ink-faint)", lineHeight: 1.7, padding: "4px 0",
               }}>
-                AI analysis not yet available.{" "}
+                {t("details.noAnalysis")}{" "}
                 <span style={{ fontStyle: "normal", fontFamily: "var(--font-body)" }}>
-                  Save the script to trigger it.
+                  {t("details.noAnalysisCta")}
                 </span>
               </div>
             )}
@@ -485,16 +553,16 @@ export default function PlayDetailsPanel({
           <div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, textTransform: "uppercase", letterSpacing: 1.5, color: "var(--ink-faint)" }}>
-                Characters
+                {t("details.characters")}
               </span>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink-faint)" }}>
-                {characters.length} speaking
+                {t("details.speakingCount", { count: characters.length })}
               </span>
             </div>
 
             {characters.length === 0 ? (
               <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink-faint)", padding: "6px 0" }}>
-                No characters found in script.
+                {t("details.noCharacters")}
               </div>
             ) : (
               <>
@@ -505,10 +573,10 @@ export default function PlayDetailsPanel({
                   fontFamily: "var(--font-mono)", fontSize: 9, textTransform: "uppercase",
                   letterSpacing: 1.2, color: "var(--ink-faint)",
                 }}>
-                  <span>Character</span>
-                  <span style={{ textAlign: "right" }}>Lines</span>
-                  <span style={{ textAlign: "right" }}>Words</span>
-                  <span style={{ textAlign: "right" }}>You</span>
+                  <span>{t("details.colCharacter")}</span>
+                  <span style={{ textAlign: "right" }}>{t("details.colLines")}</span>
+                  <span style={{ textAlign: "right" }}>{t("details.colWords")}</span>
+                  <span style={{ textAlign: "right" }}>{t("details.colYou")}</span>
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -517,18 +585,16 @@ export default function PlayDetailsPanel({
                     const other = otherPlayers.get(ch);
                     const stat = charStats[ch];
                     const isOpen = expandedChars.has(ch);
-                    const profile = analysis?.character_profiles?.[ch];
+                    const profile = getProfile(ch);
                     const top3 = stat ? [...stat.scenes].sort((a, b) => b.words - a.words).slice(0, 3) : [];
                     const pctOfScript = stat && totalWordsAll > 0 ? Math.round((stat.words / totalWordsAll) * 100) : 0;
                     const avgWordsPerLine = stat && stat.lines > 0 ? (stat.words / stat.lines).toFixed(1) : "—";
                     const sceneCount = stat?.scenes.length ?? 0;
                     const withYou = roles.length > 0 && !isYou ? withYouCount(ch) : 0;
-                    const topPartners = isYou
-                      ? Object.entries(adjacency[ch] ?? {})
-                          .filter(([p]) => !roles.includes(p))
-                          .sort((a, b) => b[1] - a[1])
-                          .slice(0, 3)
-                      : [];
+                    const topPartners = Object.entries(adjacency[ch] ?? {})
+                      .filter(([p]) => isYou ? !roles.includes(p) : true)
+                      .sort((a, b) => b[1] - a[1])
+                      .slice(0, 3);
 
                     return (
                       <div key={ch} style={{
@@ -558,21 +624,14 @@ export default function PlayDetailsPanel({
                             }}>
                               <Chev size={9} color="currentColor" />
                             </span>
-                            <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
-                              <span style={{
-                                fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700,
-                                color: isYou ? "var(--accent)" : "var(--ink)",
-                                textTransform: "uppercase", letterSpacing: 0.8,
-                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                              }}>
-                                {ch}
-                              </span>
-                              {profile && (
-                                <span style={{ fontFamily: "var(--font-body)", fontSize: 10, color: "var(--ink-faint)", lineHeight: 1 }}>
-                                  {profile.gender} · {AGE_RANGE_LABELS[profile.age_range] ?? profile.age_range}
-                                </span>
-                              )}
-                            </div>
+                            <span style={{
+                              fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700,
+                              color: isYou ? "var(--accent)" : "var(--ink)",
+                              textTransform: "uppercase", letterSpacing: 0.8,
+                              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                            }}>
+                              {ch}
+                            </span>
                           </button>
 
                           <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-muted)", textAlign: "right" }}>
@@ -601,7 +660,7 @@ export default function PlayDetailsPanel({
                               onClick={() => toggleRole(ch)}
                               disabled={isPending}
                               aria-pressed={isYou}
-                              title={isYou ? "You play this role — click to remove" : "Mark as your role"}
+                              title={isYou ? t("details.youRemove") : t("details.markRole")}
                               style={{
                                 width: 19, height: 19, flexShrink: 0, padding: 0, borderRadius: 5,
                                 border: `1.5px solid ${isYou ? "var(--accent)" : "var(--rule)"}`,
@@ -643,10 +702,10 @@ export default function PlayDetailsPanel({
                           <div style={{ padding: "4px 10px 12px", borderTop: "1px solid var(--rule)", marginTop: -1 }}>
                             <div style={{ display: "flex", gap: 14, padding: "10px 0 4px", flexWrap: "wrap" }}>
                               {[
-                                { value: `${pctOfScript}%`, label: "of script" },
-                                { value: avgWordsPerLine, label: "words/line" },
-                                { value: sceneCount, label: "scenes" },
-                                ...(withYou > 0 ? [{ value: withYou, label: "lines with you" }] : []),
+                                { value: `${pctOfScript}%`, label: t("details.ofScript") },
+                                { value: avgWordsPerLine, label: t("details.wordsPerLine") },
+                                { value: sceneCount, label: t("details.scenesCount") },
+                                ...(withYou > 0 ? [{ value: withYou, label: t("details.linesWith") }] : []),
                               ].map(({ value, label }) => (
                                 <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>{value}</span>
@@ -655,29 +714,75 @@ export default function PlayDetailsPanel({
                               ))}
                             </div>
 
-                            {profile?.description && (
+                            {profile ? (
+                              <>
+                                {/* Gender + Age */}
+                                <div style={{ display: "flex", gap: 16, marginTop: 10 }}>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={miniHeader}>{t("details.profileGender")}</div>
+                                    <EditableValue
+                                      value={profile.gender ?? ""}
+                                      options={GENDER_OPTIONS}
+                                      onSave={(v) => {
+                                        saveCharProfile(ch, "gender", v);
+                                        regenDescription(ch, v, profile.age_range ?? "adult");
+                                      }}
+                                      display={(v) => v.charAt(0).toUpperCase() + v.slice(1)}
+                                      editTitle={t("details.edit")}
+                                    />
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={miniHeader}>{t("details.profileAge")}</div>
+                                    <EditableValue
+                                      value={profile.age_range ?? ""}
+                                      options={AGE_RANGE_OPTIONS}
+                                      onSave={(v) => {
+                                        saveCharProfile(ch, "age_range", v);
+                                        regenDescription(ch, profile.gender ?? "neutral", v);
+                                      }}
+                                      display={(v) => AGE_RANGE_LABELS[v] ?? v}
+                                      editTitle={t("details.edit")}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Description */}
+                                <div style={{ marginTop: 10 }}>
+                                  <div style={{ ...miniHeader, display: "flex", alignItems: "center", gap: 5 }}>
+                                    {t("details.profileDesc")}
+                                    {regenSet.has(ch) && (
+                                      <span className="souffleur-ai-text-shimmer" style={{ fontFamily: "var(--font-mono)", fontSize: 8, letterSpacing: 0.3 }}>
+                                        {t("coach.thinking")}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {regenSet.has(ch) ? (
+                                    <div style={{ paddingTop: 4, display: "flex", flexDirection: "column", gap: 5 }}>
+                                      <ShimmerLine height={12} />
+                                      <ShimmerLine width="65%" height={12} />
+                                    </div>
+                                  ) : (
+                                    <EditableText
+                                      value={profile.description ?? ""}
+                                      placeholder={t("details.addCharDesc")}
+                                      onSave={(v) => saveCharProfile(ch, "description", v)}
+                                      multiline
+                                    />
+                                  )}
+                                </div>
+                              </>
+                            ) : showOverviewSkeleton ? (
                               <div style={{ marginTop: 10 }}>
-                                <div style={{ ...miniHeader }}>Description</div>
-                                <EditableText
-                                  value={profile.description}
-                                  placeholder="Add a character description…"
-                                  onSave={(v) => saveCharProfile(ch, "description", v)}
-                                  multiline
-                                />
-                              </div>
-                            )}
-                            {!profile && showOverviewSkeleton && (
-                              <div style={{ marginTop: 10 }}>
-                                <div style={miniHeader}>Description</div>
+                                <div style={miniHeader}>{t("details.profileDesc")}</div>
                                 <ShimmerLine height={12} />
                                 <div style={{ height: 4 }} />
                                 <ShimmerLine width="60%" height={12} />
                               </div>
-                            )}
+                            ) : null}
 
                             {topPartners.length > 0 && (
                               <div style={{ marginTop: 10 }}>
-                                <div style={miniHeader}>Plays most with</div>
+                                <div style={miniHeader}>{t("details.playsMostWith")}</div>
                                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                   {topPartners.map(([name, count]) => (
                                     <div key={name} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "2px 4px" }}>
@@ -691,7 +796,7 @@ export default function PlayDetailsPanel({
 
                             {top3.length > 0 && (
                               <div style={{ marginTop: 10 }}>
-                                <div style={miniHeader}>Top scenes</div>
+                                <div style={miniHeader}>{t("details.topScenes")}</div>
                                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                   {top3.map((s, i) => (
                                     <button
@@ -720,7 +825,7 @@ export default function PlayDetailsPanel({
                 {/* Mentioned-only characters from AI */}
                 {mentionedChars.length > 0 && (
                   <div style={{ marginTop: 16 }}>
-                    <div style={{ ...miniHeader, marginBottom: 6 }}>Also mentioned</div>
+                    <div style={{ ...miniHeader, marginBottom: 6 }}>{t("details.alsoMentioned")}</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                       {mentionedChars.map(([name, profile]) => (
                         <div key={name} style={{
@@ -752,7 +857,7 @@ export default function PlayDetailsPanel({
             }}>
               <Sparkle size={11} color="var(--ink-faint)" />
               <span style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-faint)", lineHeight: 1.4 }}>
-                Generated by AI · May not be accurate
+                {t("details.aiDisclaimer")}
               </span>
             </div>
           )}

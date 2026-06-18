@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useTransition, useMemo } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Mic, Chev, NotePen, Sparkle, X as XIcon, ArrowRight } from "@/components/ui/Icons";
 import { upsertLineNote } from "@/lib/actions/plays";
 import { usePlayRoles } from "@/contexts/PlayRolesContext";
@@ -38,6 +38,7 @@ function NotePopover({
   onSave: (text: string) => void;
   onClose: () => void;
 }) {
+  const t = useTranslations("play");
   const [value, setValue] = useState(initial);
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -62,7 +63,7 @@ function NotePopover({
         autoFocus
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="Your actor note…"
+        placeholder={t("script.noteHint")}
         rows={3}
         style={{
           width: "100%",
@@ -91,7 +92,7 @@ function NotePopover({
             color: "var(--ink-muted)",
           }}
         >
-          cancel
+          {t("script.noteCancel")}
         </button>
         <button
           onClick={() => { onSave(value); onClose(); }}
@@ -107,7 +108,7 @@ function NotePopover({
             color: "#fff",
           }}
         >
-          save
+          {t("script.noteSave")}
         </button>
       </div>
     </div>
@@ -224,6 +225,7 @@ function CharacterStatsPopover({
   scenes: Scene[];
   onJumpToScene: (idx: number) => void;
 }) {
+  const t = useTranslations("play");
   const thisScene = stats.perScene.find((p) => p.sceneId === currentSceneId);
   const top3 = [...stats.perScene].sort((a, b) => b.words - a.words).slice(0, 3);
 
@@ -258,13 +260,13 @@ function CharacterStatsPopover({
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-        <span style={{ color: "var(--ink-muted)" }}>This scene</span>
+        <span style={{ color: "var(--ink-muted)" }}>{t("script.thisScene")}</span>
         <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--ink)" }}>
           {thisScene?.lines ?? 0} lines · {thisScene?.words ?? 0}w
         </span>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: top3.length > 0 ? 10 : 0 }}>
-        <span style={{ color: "var(--ink-muted)" }}>Total</span>
+        <span style={{ color: "var(--ink-muted)" }}>{t("script.total")}</span>
         <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--ink)" }}>
           {stats.totalLines} lines · {stats.totalWords}w
         </span>
@@ -284,7 +286,7 @@ function CharacterStatsPopover({
               marginBottom: 5,
             }}
           >
-            Top scenes
+            {t("script.topScenes")}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {top3.map((t) => {
@@ -346,6 +348,7 @@ function ScriptLine({
   note: string;
   onNoteChange: (lineIdx: number, text: string) => void;
 }) {
+  const t = useTranslations("play");
   const [noteOpen, setNoteOpen] = useState(false);
 
   return (
@@ -477,7 +480,7 @@ function ScriptLine({
       {/* Note pen button (hover) */}
       <button
         onClick={() => setNoteOpen(true)}
-        title={note ? "Edit note" : "Add actor note"}
+        title={note ? t("script.noteEdit") : t("script.noteAdd")}
         className="note-btn"
         style={{
           position: "absolute",
@@ -580,256 +583,6 @@ function sceneLabel(s: Scene): string {
   return `Scene ${s.sort_order ?? 1}`;
 }
 
-// ─── Scene chat panel ─────────────────────────────────────────────────────────
-type ChatMessage = { role: "user" | "assistant"; content: string };
-
-function SceneChat({
-  userPlayId,
-  currentScene,
-  onClose,
-}: {
-  userPlayId: string;
-  currentScene: Scene;
-  onClose: () => void;
-}) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
-  const [streaming, setStreaming] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
-
-  async function send() {
-    const text = input.trim();
-    if (!text || streaming) return;
-    setInput("");
-
-    const next: ChatMessage[] = [...messages, { role: "user", content: text }];
-    setMessages([...next, { role: "assistant", content: "" }]);
-    setStreaming(true);
-
-    try {
-      const res = await fetch(`/api/plays/${userPlayId}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: next,
-          sceneAct: currentScene.act,
-          sceneTitle: currentScene.title,
-          sceneContent: currentScene.content,
-        }),
-      });
-
-      if (!res.ok || !res.body) throw new Error("Stream failed");
-
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let assistant = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        assistant += dec.decode(value, { stream: true });
-        setMessages([...next, { role: "assistant", content: assistant }]);
-      }
-    } catch (err) {
-      console.error("[SceneChat]", err);
-      setMessages([...next, { role: "assistant", content: "Sorry, something went wrong." }]);
-    } finally {
-      setStreaming(false);
-      inputRef.current?.focus();
-    }
-  }
-
-  function handleKey(e: React.KeyboardEvent) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
-  }
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: 56,
-        height: 340,
-        background: "var(--bg-elev)",
-        borderTop: "1px solid var(--accent)",
-        display: "flex",
-        flexDirection: "column",
-        zIndex: 20,
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          height: 40,
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          padding: "0 14px",
-          borderBottom: "1px solid var(--rule)",
-          gap: 7,
-        }}
-      >
-        <Sparkle size={13} color="var(--accent)" />
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            textTransform: "uppercase",
-            letterSpacing: 1,
-            color: "var(--accent)",
-            fontWeight: 600,
-          }}
-        >
-          AI Coach
-        </span>
-        <div style={{ flex: 1 }} />
-        <button
-          onClick={onClose}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "var(--ink-faint)",
-            padding: 4,
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          <XIcon size={13} color="currentColor" />
-        </button>
-      </div>
-
-      {/* Messages */}
-      <div
-        ref={scrollRef}
-        style={{
-          flex: 1,
-          overflow: "auto",
-          padding: "12px 16px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-        }}
-      >
-        {messages.length === 0 && (
-          <div
-            style={{
-              fontFamily: "var(--font-display)",
-              fontStyle: "italic",
-              fontSize: 14,
-              color: "var(--ink-faint)",
-              textAlign: "center",
-              marginTop: 32,
-              lineHeight: 1.7,
-            }}
-          >
-            Ask about motivation, subtext, or how to play a line.
-          </div>
-        )}
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: msg.role === "user" ? "flex-end" : "flex-start",
-            }}
-          >
-            <div
-              style={{
-                maxWidth: "88%",
-                padding: "8px 12px",
-                borderRadius:
-                  msg.role === "user"
-                    ? "12px 12px 2px 12px"
-                    : "12px 12px 12px 2px",
-                background:
-                  msg.role === "user"
-                    ? "var(--accent)"
-                    : "var(--surface)",
-                border: msg.role === "assistant" ? "1px solid var(--rule)" : "none",
-                color: msg.role === "user" ? "#fff" : "var(--ink)",
-                fontFamily: "var(--font-body)",
-                fontSize: 14,
-                lineHeight: 1.6,
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {msg.content || (streaming && i === messages.length - 1 ? "…" : "")}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Input */}
-      <div
-        style={{
-          flexShrink: 0,
-          borderTop: "1px solid var(--rule)",
-          display: "flex",
-          alignItems: "flex-end",
-          gap: 8,
-          padding: "8px 12px",
-        }}
-      >
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKey}
-          placeholder="Ask about this scene…"
-          rows={1}
-          style={{
-            flex: 1,
-            resize: "none",
-            background: "var(--surface)",
-            border: "1px solid var(--rule)",
-            borderRadius: "var(--radius-md)",
-            padding: "8px 10px",
-            fontFamily: "var(--font-body)",
-            fontSize: 14,
-            color: "var(--ink)",
-            outline: "none",
-            lineHeight: 1.5,
-            maxHeight: 80,
-            overflow: "auto",
-          }}
-        />
-        <button
-          onClick={send}
-          disabled={!input.trim() || streaming}
-          style={{
-            width: 34,
-            height: 34,
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: input.trim() && !streaming ? "var(--accent)" : "var(--line)",
-            border: "none",
-            borderRadius: "var(--radius-md)",
-            cursor: input.trim() && !streaming ? "pointer" : "default",
-            color: input.trim() && !streaming ? "#fff" : "var(--ink-faint)",
-            transition: "background 0.15s",
-          }}
-        >
-          <ArrowRight size={14} color="currentColor" />
-        </button>
-      </div>
-    </div>
-  );
-}
 
 // ─── Main ScriptView ──────────────────────────────────────────────────────────
 export default function ScriptView({
@@ -838,6 +591,7 @@ export default function ScriptView({
   initialNotes = {},
   initialSection,
 }: ScriptViewProps) {
+  const t = useTranslations("play");
   const { roles } = usePlayRoles();
   const { requestedSceneId, clearSceneJump, setCurrentReadSceneTitle } = useSceneNav();
   const locale = useLocale();
@@ -856,7 +610,6 @@ export default function ScriptView({
     return 0;
   });
   const [notes, setNotes] = useState<Record<string, string>>(initialNotes);
-  const [chatOpen, setChatOpen] = useState(false);
   const [, startTransition] = useTransition();
   const [handledSceneRequest, setHandledSceneRequest] = useState<string | null>(null);
 
@@ -1119,7 +872,7 @@ export default function ScriptView({
             const title = currentScene.title?.replace(/^Scene\s+\d+\s*:\s*/i, "") || "";
             const act = currentScene.act || "";
             // Big heading: prefer title, fall back to act, then section number
-            const bigHeading = title || act || `Section ${sceneIdx + 1}`;
+            const bigHeading = title || act || t("script.sectionFallback", { n: sceneIdx + 1 });
             // Small breadcrumb: only show act when there's also a separate title
             const breadcrumb = act && title && act !== title ? act : null;
             return (
@@ -1194,15 +947,6 @@ export default function ScriptView({
         </div>
       </div>
 
-      {/* ── AI Coach chat panel ── */}
-      {chatOpen && (
-        <SceneChat
-          userPlayId={userPlayId}
-          currentScene={currentScene}
-          onClose={() => setChatOpen(false)}
-        />
-      )}
-
       {/* ── Footer: prev / practice / next ── */}
       <div
         style={{
@@ -1254,30 +998,8 @@ export default function ScriptView({
           )}
         </button>
 
-        {/* Practice CTA + AI Coach */}
+        {/* Practice CTA */}
         <div style={{ display: "flex", alignItems: "center", padding: "0 10px", flexShrink: 0, gap: 8 }}>
-          <button
-            onClick={() => setChatOpen((v) => !v)}
-            title="AI Coach"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              padding: "7px 12px",
-              background: chatOpen ? "var(--accent-soft)" : "transparent",
-              border: `1px solid ${chatOpen ? "var(--accent)" : "var(--rule)"}`,
-              borderRadius: 999,
-              cursor: "pointer",
-              fontSize: 12,
-              fontWeight: 500,
-              fontFamily: "var(--font-body)",
-              color: chatOpen ? "var(--accent)" : "var(--ink-muted)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <Sparkle size={12} color="currentColor" />
-            AI Coach
-          </button>
           <a
             href={`${prefix}/app/plays/${userPlayId}?tab=practice&scene=${currentScene.id}`}
             style={{

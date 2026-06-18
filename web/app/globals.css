@@ -131,6 +131,48 @@ body {
   border-radius: 3px;
 }
 
+/* ─── AI text shimmer (moving gradient over text) ─── */
+@keyframes souffleur-ai-text-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.souffleur-ai-text-shimmer {
+  display: inline-block;
+  background: linear-gradient(
+    90deg,
+    var(--accent) 0%,
+    color-mix(in oklch, var(--accent) 30%, white) 35%,
+    color-mix(in oklch, var(--accent) 55%, oklch(80% 0.18 220)) 55%,
+    color-mix(in oklch, var(--accent) 30%, white) 70%,
+    var(--accent) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: souffleur-ai-text-shimmer 2.4s ease-in-out infinite;
+}
+
+/* ─── Floating agent panel slide-up ─── */
+@keyframes souffleur-panel-slide-up {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ─── Streaming cursor blink ─── */
+@keyframes souffleur-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.souffleur-ai-cursor::after {
+  content: "▋";
+  color: var(--accent);
+  font-size: 0.8em;
+  margin-left: 1px;
+  line-height: 1;
+  animation: souffleur-cursor-blink 0.75s step-end infinite;
+}
+
 /* ─── Sparkle pulse when analysis is running ─── */
 @keyframes souffleur-pulse-ring {
   0%   { box-shadow: 0 0 0 0 color-mix(in oklch, var(--accent) 50%, transparent); }
