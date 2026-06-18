@@ -3,10 +3,22 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useLocale } from "next-intl";
-import { X, Book, Mic, Chev, User } from "@/components/ui/Icons";
+import { useRouter } from "next/navigation";
+import { X, Book, Mic, Chev, Pencil, Sparkle, Chat } from "@/components/ui/Icons";
 import ThemeToggle from "@/components/layout/ThemeToggle";
-import CastPanel from "./CastPanel";
+import PlayDetailsPanel, { type PlayAnalysis } from "./PlayDetailsPanel";
+import PlayChatPanel from "./PlayChatPanel";
 import { PlayRolesProvider, usePlayRoles } from "@/contexts/PlayRolesContext";
+import { SceneNavProvider, useSceneNav } from "@/contexts/SceneNavContext";
+import { createClient } from "@/lib/supabase/client";
+
+function langDisplayName(code: string): string {
+  try {
+    return new Intl.DisplayNames([code], { type: "language" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
 
 interface PlayRef {
   id: string;
@@ -18,16 +30,24 @@ interface PlayShellProps {
   playTitle: string;
   userPlayId: string;
   activeTab: "read" | "practice";
+  canEdit?: boolean;
   allPlays?: PlayRef[];
   characters?: string[];
   currentRoles?: string[];
-  charStats?: Record<string, { lines: number; words: number }>;
+  charStats?: Record<string, { lines: number; words: number; scenes: { id: string; label: string; lines: number; words: number }[] }>;
+  adjacency?: Record<string, Record<string, number>>;
+  analysisState?: "ready" | "processing" | "attention";
+  playType?: string | null;
+  detectedLanguage?: string | null;
+  initialAnalysis?: PlayAnalysis | null;
 }
 
 export default function PlayShell(props: PlayShellProps) {
   return (
     <PlayRolesProvider initialRoles={props.currentRoles ?? []}>
-      <PlayShellInner {...props} />
+      <SceneNavProvider>
+        <PlayShellInner {...props} />
+      </SceneNavProvider>
     </PlayRolesProvider>
   );
 }
@@ -37,17 +57,26 @@ function PlayShellInner({
   playTitle,
   userPlayId,
   activeTab,
+  canEdit = false,
   allPlays = [],
   characters = [],
   currentRoles = [],
   charStats = {},
+  adjacency = {},
+  analysisState,
+  playType,
+  detectedLanguage,
+  initialAnalysis,
 }: PlayShellProps) {
   const { roles } = usePlayRoles();
+  const { currentReadSceneTitle } = useSceneNav();
   const locale = useLocale();
+  const router = useRouter();
   const prefix = locale === "fr" ? "/fr" : "";
 
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const [castOpen, setCastOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const switcherRef = useRef<HTMLDivElement>(null);
 
   // Close switcher on outside click
@@ -60,6 +89,23 @@ function PlayShellInner({
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
+
+  // Refresh server data when analysis completes
+  useEffect(() => {
+    if (analysisState !== "processing") return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`play-analysis-${Math.random()}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "user_plays", filter: `id=eq.${userPlayId}` },
+        (payload) => {
+          if ((payload.new as any).state === "ready") router.refresh();
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [analysisState, userPlayId, router]);
 
   const tab = (id: "read" | "practice", icon: React.ReactNode, label: string) => {
     const active = activeTab === id;
@@ -90,12 +136,13 @@ function PlayShellInner({
   return (
     <div
       style={{
+        position: "fixed",
+        inset: 0,
         display: "flex",
         flexDirection: "column",
-        height: "100dvh",
         background: "var(--bg)",
         color: "var(--ink)",
-        overflow: "hidden",
+        zIndex: 10,
       }}
     >
       {/* Top bar */}
@@ -144,20 +191,37 @@ function PlayShellInner({
               flex: 1,
             }}
           >
-            <span
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: 15,
-                fontWeight: 500,
-                fontStyle: "italic",
-                color: "var(--ink)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {playTitle}
-            </span>
+            <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 1, flex: 1 }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: 15,
+                  fontWeight: 500,
+                  fontStyle: "italic",
+                  color: "var(--ink)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  textAlign: "left",
+                }}
+              >
+                {playTitle}
+              </span>
+              {(playType || detectedLanguage) && (
+                <span style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 9.5,
+                  color: "var(--ink-faint)",
+                  textAlign: "left",
+                  letterSpacing: 0.3,
+                }}>
+                  {[
+                    playType ? playType.charAt(0).toUpperCase() + playType.slice(1) : null,
+                    detectedLanguage ? langDisplayName(detectedLanguage) : null,
+                  ].filter(Boolean).join(" · ")}
+                </span>
+              )}
+            </div>
             {allPlays.length > 1 && (
               <Chev
                 size={12}
@@ -241,11 +305,10 @@ function PlayShellInner({
           {tab("practice", <Mic size={13} color="currentColor" />, "Practice")}
         </div>
 
-        {/* Right: cast + theme */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          <button
-            onClick={() => setCastOpen(true)}
-            title="Cast & your role"
+        {canEdit && (
+          <a
+            href={`${prefix}/app/plays/${userPlayId}/edit${currentReadSceneTitle ? `?section=${encodeURIComponent(currentReadSceneTitle)}` : ""}`}
+            title="Edit script"
             style={{
               display: "flex",
               alignItems: "center",
@@ -253,13 +316,61 @@ function PlayShellInner({
               width: 32,
               height: 32,
               borderRadius: "var(--radius-md)",
-              border: roles.length > 0 ? "1px solid var(--accent)" : "1px solid var(--rule)",
-              background: roles.length > 0 ? "color-mix(in oklch, var(--accent) 10%, var(--surface))" : "transparent",
-              cursor: "pointer",
-              color: roles.length > 0 ? "var(--accent)" : "var(--ink-muted)",
+              border: "1px solid var(--rule)",
+              background: "transparent",
+              color: "var(--ink-muted)",
+              textDecoration: "none",
+              flexShrink: 0,
             }}
           >
-            <User size={14} color="currentColor" />
+            <Pencil size={13} color="currentColor" />
+          </a>
+        )}
+
+        {/* Right: chat + details + theme */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {activeTab === "read" && (
+            <button
+              onClick={() => setChatOpen((v) => !v)}
+              title="Theatre coach"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                borderRadius: "var(--radius-md)",
+                border: chatOpen ? "1px solid var(--accent)" : "1px solid var(--rule)",
+                background: chatOpen ? "color-mix(in oklch, var(--accent) 10%, var(--surface))" : "transparent",
+                cursor: "pointer",
+                color: chatOpen ? "var(--accent)" : "var(--ink-muted)",
+              }}
+            >
+              <Chat size={14} color="currentColor" />
+            </button>
+          )}
+          <button
+            onClick={() => setDetailsOpen(true)}
+            title={analysisState === "processing" ? "AI analysis in progress…" : "Play details"}
+            className={analysisState === "processing" ? "souffleur-sparkle-processing" : undefined}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 32,
+              height: 32,
+              borderRadius: "var(--radius-md)",
+              border: analysisState === "processing"
+                ? "1px solid var(--accent)"
+                : roles.length > 0 ? "1px solid var(--accent)" : "1px solid var(--rule)",
+              background: analysisState === "processing"
+                ? "var(--accent-soft)"
+                : roles.length > 0 ? "color-mix(in oklch, var(--accent) 10%, var(--surface))" : "transparent",
+              cursor: "pointer",
+              color: (analysisState === "processing" || roles.length > 0) ? "var(--accent)" : "var(--ink-muted)",
+            }}
+          >
+            <Sparkle size={14} color="currentColor" />
           </button>
           <ThemeToggle />
         </div>
@@ -268,15 +379,27 @@ function PlayShellInner({
       {/* Content */}
       <div style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden" }}>
         {children}
+        {chatOpen && activeTab === "read" && (
+          <PlayChatPanel
+            userPlayId={userPlayId}
+            currentSceneTitle={currentReadSceneTitle}
+            userRoles={roles}
+            language={detectedLanguage ?? null}
+            onClose={() => setChatOpen(false)}
+          />
+        )}
       </div>
 
-      {/* Cast panel overlay */}
-      {castOpen && (
-        <CastPanel
+      {/* Unified play details panel */}
+      {detailsOpen && (
+        <PlayDetailsPanel
           userPlayId={userPlayId}
           characters={characters}
           charStats={charStats}
-          onClose={() => setCastOpen(false)}
+          adjacency={adjacency}
+          initialAnalysis={initialAnalysis ?? null}
+          initialAnalysisState={analysisState}
+          onClose={() => setDetailsOpen(false)}
         />
       )}
     </div>

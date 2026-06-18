@@ -49,7 +49,7 @@ export default function RootLayout({
         } as React.CSSProperties
       }
     >
-      <body>{children}</body>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

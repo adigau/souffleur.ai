@@ -138,6 +138,12 @@ export const NotePen = ({ size = 16, color = "currentColor" }: IconProps) => (
   </svg>
 );
 
+export const Chat = ({ size = 16, color = "currentColor" }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+    <path d="M2 3C2 2.45 2.45 2 3 2H13C13.55 2 14 2.45 14 3V10C14 10.55 13.55 11 13 11H9L5.5 14V11H3C2.45 11 2 10.55 2 10V3Z" stroke={color} strokeWidth="1.3" strokeLinejoin="round" />
+  </svg>
+);
+
 export const X = ({ size = 16, color = "currentColor" }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
     <path d="M4 4l8 8M12 4l-8 8" stroke={color} strokeWidth="1.5" strokeLinecap="round" />

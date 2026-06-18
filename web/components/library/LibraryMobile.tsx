@@ -1,17 +1,34 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import LibCard, { type Play } from "./LibCard";
 import LibraryEmpty from "./LibraryEmpty";
 import { Search, Upload, Pencil } from "@/components/ui/Icons";
 import Button from "@/components/ui/Button";
+import { createNewPlay } from "@/lib/actions/plays";
+import { useRealtimePlays } from "@/hooks/useRealtimePlays";
 
 interface LibraryMobileProps {
   plays: Play[];
 }
 
-export default function LibraryMobile({ plays }: LibraryMobileProps) {
+export default function LibraryMobile({ plays: initialPlays }: LibraryMobileProps) {
   const t = useTranslations("library");
+  const locale = useLocale();
+  const router = useRouter();
+  const prefix = locale === "fr" ? "/fr" : "";
+  const [isPending, startTransition] = useTransition();
+  const plays = useRealtimePlays(initialPlays);
+
+  function handleWrite() {
+    startTransition(async () => {
+      const result = await createNewPlay();
+      if (result.id) router.push(`${prefix}/app/plays/${result.id}/edit`);
+      else console.error("[Write]", result.error);
+    });
+  }
 
   if (plays.length === 0) {
     return (
@@ -85,11 +102,11 @@ export default function LibraryMobile({ plays }: LibraryMobileProps) {
           flexShrink: 0,
         }}
       >
-        <Button variant="secondary" size="lg" full>
+        <Button variant="secondary" size="lg" full onClick={handleWrite} disabled={isPending}>
           <Pencil size={15} />
           {t("write")}
         </Button>
-        <Button size="lg" full>
+        <Button size="lg" full disabled>
           <Upload size={15} />
           {t("import")}
         </Button>

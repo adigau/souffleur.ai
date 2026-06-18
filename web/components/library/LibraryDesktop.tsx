@@ -1,17 +1,34 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import LibCard, { type Play } from "./LibCard";
 import LibraryEmpty from "./LibraryEmpty";
 import { Upload, Search } from "@/components/ui/Icons";
 import Button from "@/components/ui/Button";
+import { createNewPlay } from "@/lib/actions/plays";
+import { useRealtimePlays } from "@/hooks/useRealtimePlays";
 
 interface LibraryDesktopProps {
   plays: Play[];
 }
 
-export default function LibraryDesktop({ plays }: LibraryDesktopProps) {
+export default function LibraryDesktop({ plays: initialPlays }: LibraryDesktopProps) {
   const t = useTranslations("library");
+  const locale = useLocale();
+  const router = useRouter();
+  const prefix = locale === "fr" ? "/fr" : "";
+  const [isPending, startTransition] = useTransition();
+  const plays = useRealtimePlays(initialPlays);
+
+  function handleWrite() {
+    startTransition(async () => {
+      const result = await createNewPlay();
+      if (result.id) router.push(`${prefix}/app/plays/${result.id}/edit`);
+      else console.error("[Write]", result.error);
+    });
+  }
 
   if (plays.length === 0) {
     return (
@@ -85,10 +102,10 @@ export default function LibraryDesktop({ plays }: LibraryDesktopProps) {
             {t("searchPlaceholder")}
           </div>
 
-          <Button variant="secondary" size="sm">
+          <Button variant="secondary" size="sm" onClick={handleWrite} disabled={isPending}>
             {t("write")}
           </Button>
-          <Button size="sm">
+          <Button size="sm" disabled>
             <Upload size={14} />
             {t("import")}
           </Button>
