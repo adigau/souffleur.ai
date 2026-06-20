@@ -179,10 +179,31 @@ body {
   to   { transform: rotate(360deg); }
 }
 
-/* ─── AI badge — fades in when a line's audio becomes available ─── */
+/* ─── AI badge — bouncy pop when a line's audio becomes available ─── */
 @keyframes souffleur-ai-badge-appear {
-  from { opacity: 0; transform: translateY(1px); }
-  to   { opacity: 1; transform: translateY(0); }
+  0%   { transform: scale(0);    opacity: 0; }
+  55%  { transform: scale(1.5);  opacity: 1; }
+  75%  { transform: scale(0.88); }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+/* ─── Confetti particle — flies out from badge center ─── */
+/* @property lets the browser treat --tx / --ty as typed lengths so they
+   can be interpolated inside calc() within @keyframes. */
+@property --tx {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --ty {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes souffleur-confetti-particle {
+  0%   { transform: translate(-50%, -50%) scale(1);  opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0); opacity: 0; }
 }
 
 /* ─── Scene audio loading — gentle shimmer sweep over the script text ─── */

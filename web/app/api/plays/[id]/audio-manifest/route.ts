@@ -9,6 +9,8 @@ export interface AudioManifestLine {
   word_timestamps: { word: string; time: number }[] | null;
   duration_ms: number | null;
   signed_url: string | null;
+  tts_voice_id: string | null;
+  character_name: string | null;
 }
 
 export async function GET(
@@ -40,7 +42,7 @@ export async function GET(
   let rowsQuery = admin
     .from("scene_audio_lines")
     .select(
-      "scene_sort_order, line_index, content_hash, word_timestamps, duration_ms, storage_path"
+      "scene_sort_order, line_index, content_hash, word_timestamps, duration_ms, storage_path, tts_voice_id, character_name"
     )
     .eq("play_id", upRow.play_id)
     .eq("generation_state", "ready")
@@ -75,9 +77,9 @@ export async function GET(
     word_timestamps: r.word_timestamps as AudioManifestLine["word_timestamps"],
     duration_ms: r.duration_ms,
     signed_url: r.storage_path ? (urlMap.get(r.storage_path) ?? null) : null,
+    tts_voice_id: r.tts_voice_id ?? null,
+    character_name: r.character_name ?? null,
   }));
 
-  return NextResponse.json(manifest, {
-    headers: { "Cache-Control": "private, max-age=600" },
-  });
+  return NextResponse.json(manifest);
 }

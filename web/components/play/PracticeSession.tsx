@@ -49,6 +49,7 @@ interface LineDebugInfo {
   gender: string;
   character: string;
   language: string;
+  durationMs: number | null;
   signedUrl: string | null;
 }
 
@@ -135,29 +136,69 @@ function LineText({
 
 // Per-line audio badge — shown after the character name
 // idle / loading / generating → null (no indicator)
-// done   → "AI" label in accent colour
+// done   → "AI" label in accent colour with hover debug popup
 // error  → monitor icon + "↺ AI" retry button
 function LineAudioBadge({
-  state, onRetry, debugInfo,
-}: { state: "idle" | "loading" | "generating" | "done" | "error"; onRetry: () => void; debugInfo?: LineDebugInfo }) {
+  state, onRetry, debugInfo, showConfetti,
+}: { state: "idle" | "loading" | "generating" | "done" | "error"; onRetry: () => void; debugInfo?: LineDebugInfo; showConfetti?: boolean }) {
+  const [hovered, setHovered] = useState(false);
+
   if (state === "done") {
-    const tooltipParts: string[] = [];
-    if (debugInfo?.character) tooltipParts.push(`char: ${debugInfo.character}`);
-    if (debugInfo?.voiceId) tooltipParts.push(`voice: ${debugInfo.voiceId}`);
-    if (debugInfo?.gender) tooltipParts.push(`gender: ${debugInfo.gender}`);
-    if (debugInfo?.language) tooltipParts.push(`lang: ${debugInfo.language}`);
-    if (debugInfo?.signedUrl) tooltipParts.push(`url: ${debugInfo.signedUrl}`);
+    const confetti = [
+      { dx: -16, dy: -17, color: "#c48a17", size: 4,   delay: 0    },
+      { dx:   1, dy: -20, color: "#b24548", size: 3.5, delay: 0.03 },
+      { dx:  17, dy: -14, color: "#4a6b3a", size: 4,   delay: 0.01 },
+      { dx:  20, dy:  -1, color: "#c48a17", size: 3,   delay: 0.05 },
+      { dx:  15, dy:  15, color: "#2a4878", size: 3.5, delay: 0.02 },
+      { dx:   0, dy:  19, color: "#b24548", size: 4,   delay: 0.04 },
+      { dx: -16, dy:  14, color: "#4a6b3a", size: 3,   delay: 0.06 },
+      { dx: -19, dy:   0, color: "#2a4878", size: 3.5, delay: 0.02 },
+    ];
+
     return (
       <span
-        title={tooltipParts.length ? tooltipParts.join("\n") : undefined}
-        style={{
+        style={{ position: "relative", display: "inline-flex", alignItems: "center" }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        {showConfetti && confetti.map((p, i) => (
+          <span key={i} style={{
+            position: "absolute", top: "50%", left: "50%",
+            width: p.size, height: p.size, borderRadius: "50%",
+            backgroundColor: p.color, pointerEvents: "none", display: "block",
+            animation: `souffleur-confetti-particle 0.65s ease-out ${p.delay}s both`,
+            "--tx": `${p.dx}px`, "--ty": `${p.dy}px`,
+          } as React.CSSProperties} />
+        ))}
+        <span style={{
           fontFamily: "var(--font-mono)", fontSize: 8, letterSpacing: 0.8,
           color: "var(--accent)", fontWeight: 600, lineHeight: 1,
-          animation: "souffleur-ai-badge-appear 0.25s ease both",
-          cursor: tooltipParts.length ? "help" : "default",
-        }}
-      >
-        AI
+          animation: "souffleur-ai-badge-appear 0.4s cubic-bezier(0.34,1.56,0.64,1) both",
+          cursor: "help",
+        }}>
+          AI
+        </span>
+        {hovered && (
+          <div style={{
+            position: "absolute", bottom: "calc(100% + 6px)", left: 0,
+            background: "var(--surface)", border: "1px solid var(--rule)",
+            borderRadius: "var(--radius-md)", padding: "6px 10px",
+            fontFamily: "var(--font-mono)", fontSize: 9, lineHeight: 1.8,
+            color: "var(--ink-muted)", whiteSpace: "nowrap",
+            boxShadow: "var(--shadow-md)", zIndex: 50, pointerEvents: "none",
+          }}>
+            <div><span style={{ color: "var(--ink-faint)" }}>char  </span>{debugInfo?.character || "—"}</div>
+            <div><span style={{ color: "var(--ink-faint)" }}>voice </span>{debugInfo?.voiceId || "—"}</div>
+            {debugInfo?.gender ? <div><span style={{ color: "var(--ink-faint)" }}>gender</span> {debugInfo.gender}</div> : null}
+            <div><span style={{ color: "var(--ink-faint)" }}>lang  </span>{debugInfo?.language || "—"}</div>
+            <div><span style={{ color: "var(--ink-faint)" }}>dur   </span>{debugInfo?.durationMs != null ? `${(debugInfo.durationMs / 1000).toFixed(2)}s` : "—"}</div>
+            {debugInfo?.signedUrl && (
+              <div style={{ maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis" }}>
+                <span style={{ color: "var(--ink-faint)" }}>url   </span>{debugInfo.signedUrl.slice(0, 70)}…
+              </div>
+            )}
+          </div>
+        )}
       </span>
     );
   }
@@ -264,11 +305,14 @@ export default function PracticeSession({
   const [banner, setBanner] = useState<{ ai: number; browser: number } | null>(null);
   const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isAiActive, setIsAiActive] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // ── Audio refs ────────────────────────────────────────────────────────────
   const pollyCache = useRef<Map<string, PollyEntry>>(new Map());
   const manifestMap = useRef<Map<string, string>>(new Map()); // "sort:idx" → hash
   const lineDebugRef = useRef<Map<string, LineDebugInfo>>(new Map()); // "sort:idx" → debug info
+  // Hashes downloaded in this browser session — only these get per-line confetti
+  const justDownloadedRef = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -402,16 +446,17 @@ export default function PracticeSession({
         newManifestMap.set(`${line.scene_sort_order}:${line.line_index}`, line.content_hash);
       }
       manifestMap.current = newManifestMap;
-      // Seed debug info from manifest (signed_url only; voice info added during download)
+      // Seed debug info from manifest
       for (const line of manifest) {
         const k = `${line.scene_sort_order}:${line.line_index}`;
-        if (!lineDebugRef.current.has(k)) {
-          lineDebugRef.current.set(k, {
-            voiceId: "", gender: "", character: "",
-            language: language ?? "unknown",
-            signedUrl: line.signed_url,
-          });
-        }
+        lineDebugRef.current.set(k, {
+          voiceId: line.tts_voice_id ?? "",
+          gender: "",
+          character: line.character_name ?? "",
+          language: language ?? "unknown",
+          durationMs: line.duration_ms ?? null,
+          signedUrl: line.signed_url,
+        });
       }
       setManifestEntries(manifest);
 
@@ -541,11 +586,12 @@ export default function PracticeSession({
             gender: sl.gender,
             character: sl.character_name,
             language: language ?? "unknown",
+            durationMs: sl.duration_ms ?? null,
             signedUrl: sl.signed_url,
           });
 
           if (!sl.signed_url || pollyCache.current.has(sl.content_hash)) {
-            // Even without blob, mark cached so badge appears
+            justDownloadedRef.current.add(sl.content_hash);
             setCachedHashes((prev) => { const s = new Set(prev); s.add(sl.content_hash); return s; });
             continue;
           }
@@ -557,6 +603,7 @@ export default function PracticeSession({
             const dms = sl.duration_ms ?? 0;
             await setCachedAudio({ content_hash: sl.content_hash, audio_blob: blob, word_timestamps: wts, duration_ms: dms }).catch(() => {});
             pollyCache.current.set(sl.content_hash, { blob, wordTimestamps: wts, durationMs: dms });
+            justDownloadedRef.current.add(sl.content_hash);
             setCachedHashes((prev) => { const s = new Set(prev); s.add(sl.content_hash); return s; });
           } catch {}
         }
@@ -574,8 +621,16 @@ export default function PracticeSession({
     setSceneDownloading(false);
     setDownloadingSceneSortOrder(null);
     setSceneDownloadProgress(null);
-    // Refresh manifest so newly ready lines are included in sceneManifestEntries
     setManifestVersion((v) => v + 1);
+
+    // Show scene celebration if everything succeeded
+    let sceneErrCount = 0;
+    for (const key of errorMapRef.current.keys()) {
+      if (key.startsWith(`${sortOrder}:`)) sceneErrCount++;
+    }
+    if (succeeded > 0 && sceneErrCount === 0 && remaining === 0) {
+      setShowCelebration(true);
+    }
   }
 
   // ── Banner on scene change ────────────────────────────────────────────────
@@ -628,27 +683,50 @@ export default function PracticeSession({
     const data = new Uint8Array(bufLen);
     const accent = accentColorRef.current;
 
+    // Breathing sine wave: RMS amplitude drives the wave height with heavy smoothing.
+    // The wave scrolls slowly across the canvas — large ample motion, never jittery.
+    let smoothedAmp = 0;
+    let phase = 0;
+
     function draw() {
       rafIdRef.current = requestAnimationFrame(draw);
       analyser!.getByteTimeDomainData(data);
+
+      // Compute RMS of audio signal
+      let sumSq = 0;
+      for (let i = 0; i < bufLen; i++) {
+        const v = (data[i] / 128.0) - 1.0;
+        sumSq += v * v;
+      }
+      const rms = Math.sqrt(sumSq / bufLen);
+
+      // Smoothing — attack ~0.15s, release ~0.5s at 60fps
+      const target = rms;
+      smoothedAmp = smoothedAmp * (smoothedAmp < target ? 0.88 : 0.95) + target * (smoothedAmp < target ? 0.12 : 0.05);
+
+      // Phase advances: ~100px/sec on a 180px canvas
+      phase += 0.13;
+
       const w = canvas!.width;
       const h = canvas!.height;
       ctx!.clearRect(0, 0, w, h);
+
+      // Scale amplitude to canvas height — speech RMS typically 0.05-0.25
+      const waveAmp = Math.min(smoothedAmp * h * 6, h * 0.46);
+
       ctx!.strokeStyle = accent;
       ctx!.lineWidth = 1.5;
       ctx!.shadowColor = accent;
-      ctx!.shadowBlur = 4;
+      ctx!.shadowBlur = waveAmp > 2 ? 6 : 0;
       ctx!.beginPath();
-      const sliceW = w / bufLen;
-      let x = 0;
-      for (let i = 0; i < bufLen; i++) {
-        const deviation = (data[i] / 128.0) - 1.0; // −1..+1, silence = 0
-        const y = (h / 2) + Math.max(-h / 2, Math.min(h / 2, deviation * h * 1.1));
-        if (i === 0) ctx!.moveTo(x, y);
+
+      // 1.5 cycles visible → period = canvas_width / 1.5
+      const freq = (Math.PI * 2 * 1.5) / w;
+      for (let x = 0; x <= w; x++) {
+        const y = h / 2 + Math.sin(x * freq + phase) * waveAmp;
+        if (x === 0) ctx!.moveTo(x, y);
         else ctx!.lineTo(x, y);
-        x += sliceW;
       }
-      ctx!.lineTo(w, h / 2);
       ctx!.stroke();
     }
     draw();
@@ -1167,13 +1245,18 @@ export default function PracticeSession({
                           {e.content.ch}
                         </span>
                         {/* Non-active lines: AI badge or browser/error badge */}
-                        {!isActive && (
-                          <LineAudioBadge
-                            state={audioBadgeState}
-                            onRetry={downloadScene}
-                            debugInfo={lineDebugRef.current.get(`${currentScene.sort_order}:${e.contentIdx}`)}
-                          />
-                        )}
+                        {!isActive && (() => {
+                          const lineKey = `${currentScene.sort_order}:${e.contentIdx}`;
+                          const hash = manifestMap.current.get(lineKey);
+                          return (
+                            <LineAudioBadge
+                              state={audioBadgeState}
+                              onRetry={downloadScene}
+                              debugInfo={lineDebugRef.current.get(lineKey)}
+                              showConfetti={!!(hash && justDownloadedRef.current.has(hash))}
+                            />
+                          );
+                        })()}
                         {/* Active line: voice mode indicator */}
                         {showVoiceLabel && (
                           <span style={{
@@ -1304,6 +1387,122 @@ export default function PracticeSession({
             {t("practice.nextScene")}
           </button>
         )}
+      </div>
+
+      {showCelebration && (
+        <CelebrationOverlay onDone={() => setShowCelebration(false)} />
+      )}
+    </div>
+  );
+}
+
+// ── Full-screen celebration overlay ──────────────────────────────────────────
+function CelebrationOverlay({ onDone }: { onDone: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Stable ref so the effect runs once regardless of parent re-renders
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const colors = ["#c48a17", "#b24548", "#4a6b3a", "#2a4878", "#e0a948", "#d67a7d", "#8faa6f", "#c48a17"];
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    const particles = Array.from({ length: 90 }, () => {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 10 + 4;
+      return {
+        x: cx + (Math.random() - 0.5) * 80,
+        y: cy + (Math.random() - 0.5) * 40,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 4,
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.25,
+        w: Math.random() * 9 + 5,
+        h: Math.random() * 6 + 3,
+        color: colors[Math.floor(Math.random() * colors.length)],
+      };
+    });
+
+    const start = Date.now();
+    const duration = 3200;
+    let raf: number;
+
+    function draw() {
+      const t = (Date.now() - start) / duration;
+      ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
+
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.28;
+        p.vx *= 0.99;
+        p.rotation += p.rotSpeed;
+        const opacity = t < 0.65 ? 1 : 1 - (t - 0.65) / 0.35;
+        ctx!.save();
+        ctx!.globalAlpha = Math.max(0, opacity);
+        ctx!.translate(p.x, p.y);
+        ctx!.rotate(p.rotation);
+        ctx!.fillStyle = p.color;
+        ctx!.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx!.restore();
+      }
+
+      if (t < 1) {
+        raf = requestAnimationFrame(draw);
+      } else {
+        onDoneRef.current();
+      }
+    }
+
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div
+      onClick={onDone}
+      style={{
+        position: "fixed", inset: 0, zIndex: 200,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "pointer",
+      }}
+    >
+      <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
+      <div style={{
+        position: "relative", zIndex: 1,
+        background: "var(--surface)", border: "1px solid var(--rule)",
+        borderRadius: "var(--radius-xl)", padding: "28px 48px",
+        textAlign: "center", boxShadow: "var(--shadow-lg)",
+        animation: "souffleur-panel-slide-up 0.35s cubic-bezier(0.34,1.56,0.64,1) both",
+      }}>
+        <div style={{
+          fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: 1.5,
+          textTransform: "uppercase", color: "var(--accent)", marginBottom: 10,
+        }}>
+          AI voices ready
+        </div>
+        <div style={{
+          fontFamily: "var(--font-display)", fontStyle: "italic",
+          fontSize: 26, fontWeight: 500, color: "var(--ink)", lineHeight: 1.2,
+        }}>
+          The stage is yours.
+        </div>
+        <div style={{
+          fontFamily: "var(--font-body)", fontSize: 13,
+          color: "var(--ink-muted)", marginTop: 8,
+        }}>
+          All lines for this scene are voiced and ready to rehearse.
+        </div>
       </div>
     </div>
   );

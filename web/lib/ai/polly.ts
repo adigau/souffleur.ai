@@ -11,71 +11,22 @@ export interface WordTimestamp {
 // catch any invalid value at compile time before it ever reaches AWS.
 const VOICE_POOLS: Record<string, Record<string, VoiceId[]>> = {
   en: {
-    male:    [VoiceId.Justin, VoiceId.Joey, VoiceId.Kevin, VoiceId.Matthew, VoiceId.Stephen, VoiceId.Gregory],
-    female:  [VoiceId.Ivy, VoiceId.Kimberly, VoiceId.Kendra, VoiceId.Joanna, VoiceId.Salli, VoiceId.Ruth, VoiceId.Danielle, VoiceId.Amy],
-    neutral: [VoiceId.Aria, VoiceId.Ivy, VoiceId.Joanna],
+    male:    [VoiceId.Matthew, VoiceId.Gregory, VoiceId.Stephen, VoiceId.Joey, VoiceId.Justin, VoiceId.Kevin],
+    female:  [VoiceId.Danielle, VoiceId.Ruth, VoiceId.Joanna, VoiceId.Salli, VoiceId.Kimberly, VoiceId.Kendra, VoiceId.Ivy, VoiceId.Amy],
+    neutral: [VoiceId.Aria, VoiceId.Danielle, VoiceId.Joanna],
   },
   fr: {
-    male:    [VoiceId.Remi],
-    female:  [VoiceId.Lea, VoiceId.Isabelle, VoiceId.Ambre],
-    neutral: [VoiceId.Lea],
-  },
-  es: {
-    male:    [VoiceId.Sergio, VoiceId.Pedro],
-    female:  [VoiceId.Lucia, VoiceId.Lupe, VoiceId.Mia],
-    neutral: [VoiceId.Lucia],
-  },
-  de: {
-    male:    [VoiceId.Daniel, VoiceId.Florian],
-    female:  [VoiceId.Vicki, VoiceId.Hannah],
-    neutral: [VoiceId.Vicki],
-  },
-  it: {
-    male:    [VoiceId.Adriano],
-    female:  [VoiceId.Bianca],
-    neutral: [VoiceId.Bianca],
-  },
-  pt: {
-    male:    [VoiceId.Thiago],
-    female:  [VoiceId.Camila, VoiceId.Vitoria, VoiceId.Ines],
-    neutral: [VoiceId.Camila],
-  },
-  nl: {
-    male:    [VoiceId.Ruben],
-    female:  [VoiceId.Lotte],
-    neutral: [VoiceId.Lotte],
-  },
-  ja: {
-    male:    [VoiceId.Takumi, VoiceId.Kazuha],
-    female:  [VoiceId.Mizuki, VoiceId.Tomoko],
-    neutral: [VoiceId.Mizuki],
-  },
-  zh: {
-    male:    [VoiceId.Zhiyu],
-    female:  [VoiceId.Zhiyu],
-    neutral: [VoiceId.Zhiyu],
-  },
-  ko: {
-    male:    [VoiceId.Seoyeon],
-    female:  [VoiceId.Seoyeon],
-    neutral: [VoiceId.Seoyeon],
-  },
-  pl: {
-    male:    [VoiceId.Jacek, VoiceId.Jan],
-    female:  [VoiceId.Maja, VoiceId.Ola],
-    neutral: [VoiceId.Ola],
-  },
-  sv: {
-    male:    [VoiceId.Lennart],
-    female:  [VoiceId.Elin],
-    neutral: [VoiceId.Elin],
+    // Neural: Remi (M), Lea / Isabelle / Ambre (F)
+    // Standard: Mathieu (M), Celine (F) — gives 2 male voices for multi-character plays
+    male:    [VoiceId.Remi, VoiceId.Mathieu],
+    female:  [VoiceId.Lea, VoiceId.Isabelle, VoiceId.Ambre, VoiceId.Celine],
+    neutral: [VoiceId.Lea, VoiceId.Remi],
   },
 };
 
 // Voices that only support Engine="standard" (not neural)
 const STANDARD_ONLY_VOICES = new Set<VoiceId>([
-  VoiceId.Giorgio, VoiceId.Mathieu, VoiceId.Celine, VoiceId.Maxim,
-  VoiceId.Tatyana, VoiceId.Karl, VoiceId.Naja,
+  VoiceId.Mathieu, VoiceId.Celine,
 ]);
 
 function getVoicePool(language: string, gender: string): VoiceId[] {
@@ -85,16 +36,27 @@ function getVoicePool(language: string, gender: string): VoiceId[] {
   return pools[g] ?? pools["neutral"] ?? pools["female"] ?? Object.values(pools)[0];
 }
 
+// Simple djb2-style hash so a character name maps to a stable pool offset.
+// Two characters with different names will hit different starting points in the
+// pool, reducing the chance that co-occurring characters share the same voice.
+function nameHash(name: string): number {
+  let h = 5381;
+  for (let i = 0; i < name.length; i++) h = (h * 33) ^ name.charCodeAt(i);
+  return Math.abs(h);
+}
+
 export function assignVoice(
-  _characterName: string,
+  characterName: string,
   gender: string,
   language: string,
   usedVoices: Set<string>
 ): VoiceId {
   const pool = getVoicePool(language, gender);
   const available = pool.filter((v) => !usedVoices.has(v));
-  if (available.length > 0) return available[0];
-  return pool[usedVoices.size % pool.length];
+  const seed = nameHash(characterName);
+  if (available.length > 0) return available[seed % available.length];
+  // Pool exhausted — wrap around but still use name hash to differentiate
+  return pool[seed % pool.length];
 }
 
 function makePollyClient(): PollyClient {
