@@ -156,20 +156,26 @@ export function parseSSF(text: string): ParseResult {
     }
 
     // ── Stage direction: (text) — only outside a character's dialogue.
-    // Inside dialogue (pendingChar/lastCh set), a parenthetical-only line is
-    // instead handled below as part of that character's line (see rule 3).
-    if (trimmed.startsWith("(") && pendingChar === null && lastCh === null) {
-      // Check for unclosed paren
-      if (!trimmed.endsWith(")")) {
-        errors.push({
-          line: lineNum,
-          message: "La didascalie doit s'ouvrir et se fermer sur la même ligne",
-          severity: "error",
-        });
-      }
+    // Inside dialogue (pendingChar/lastCh set), a parenthetical-only line
+    // before actual text is treated as a direction annotation on the pending
+    // character cue; mixed or text-containing lines are handled below (rule 3).
+    if (trimmed.startsWith("(") && trimmed.endsWith(")") && pendingChar === null && lastCh === null) {
       const dirText = trimmed.replace(/^\(|\)$/g, "").trim();
-      const type: ParatextType =
-        beforeFirstScene || beforeFirstAct ? "play_open" : "action";
+      // play_open only before the first act header; inside an act it's action
+      const type: ParatextType = beforeFirstAct ? "play_open" : "action";
+      currentContent.push({ type, text: dirText });
+      continue;
+    }
+
+    // Unclosed parenthetical outside character context
+    if (trimmed.startsWith("(") && !trimmed.endsWith(")") && pendingChar === null && lastCh === null) {
+      errors.push({
+        line: lineNum,
+        message: "La didascalie doit s'ouvrir et se fermer sur la même ligne",
+        severity: "error",
+      });
+      const dirText = trimmed.replace(/^\(/, "").trim();
+      const type: ParatextType = beforeFirstAct ? "play_open" : "action";
       currentContent.push({ type, text: dirText });
       continue;
     }
@@ -211,6 +217,22 @@ export function parseSSF(text: string): ParseResult {
     // ── Dialogue / plain text ─────────────────────────────────────────────
     if (pendingChar !== null) {
       const segments = parseDialogueSegments(trimmed);
+
+      // Standalone parenthetical line before any dialogue text → emit as a
+      // separate `action` stage-direction entry and keep waiting for text.
+      // This handles:  @DAVID\n\n(à voix basse)\n\nY bougent pas.
+      // It differs from @DAVID (à voix basse) on one line (captured by charMatch[2]).
+      const isPureAction =
+        trimmed.startsWith("(") &&
+        trimmed.endsWith(")") &&
+        segments !== null &&
+        segments.every((s) => "action" in s);
+      if (isPureAction) {
+        const dirText = trimmed.replace(/^\(|\)$/g, "").trim();
+        currentContent.push({ type: "action" as ParatextType, text: dirText });
+        continue; // don't clear pendingChar — wait for the actual dialogue text
+      }
+
       const entry: ContentEntry = {
         type: "line" as ParatextType,
         ch: pendingChar,

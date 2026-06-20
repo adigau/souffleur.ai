@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { parseSSF, type SsfError, type ParsedScene } from "@/lib/script-format";
 import { analyzePlay } from "@/lib/ai/analyze-play";
+import { syncAudioLines } from "@/lib/ai/sync-audio-lines";
 
 // Creates a new blank play and returns the user_play id
 export async function createNewPlay(title = "Untitled play"): Promise<{ id: string | null; error?: string }> {
@@ -204,8 +205,9 @@ export async function savePlayScript(
   // Revalidate for all locales
   revalidatePath("/", "layout");
 
-  // Background: analyze play with AI (non-blocking, runs after response is sent)
+  // Background: analyze play with AI + sync audio line rows (non-blocking)
   after(() => analyzePlay(playId, userPlayId, rawText));
+  after(() => syncAudioLines(playId));
 
   return { ok: true, errors, scenesWritten: scenes.length };
 }

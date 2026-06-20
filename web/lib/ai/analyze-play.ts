@@ -193,5 +193,8 @@ export async function analyzePlay(
     return;
   }
 
+  // Write detected language back to plays so audio generation uses the right voice pool
+  await supabase.from("plays").update({ language: topLang }).eq("id", playId);
+
   await updateUserPlayProgress(supabase, userPlayId, { state: "ready", progress: 100 });
 }

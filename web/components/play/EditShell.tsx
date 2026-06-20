@@ -7,6 +7,341 @@ import { savePlayScript, deletePlay } from "@/lib/actions/plays";
 import type { SsfError } from "@/lib/script-format";
 import dynamic from "next/dynamic";
 
+// ─── Character parsing (real-time, from raw editor text) ──────────────────────
+
+interface EditorSceneStat {
+  label: string;
+  words: number;
+}
+
+interface EditorCharStat {
+  lines: number;
+  words: number;
+  scenes: EditorSceneStat[];
+}
+
+function parseCharacters(text: string): {
+  characters: string[];
+  charStats: Record<string, EditorCharStat>;
+} {
+  const stats: Record<string, EditorCharStat> = {};
+  let currentChar: string | null = null;
+  let currentH1 = "";
+  let currentH2 = "";
+
+  function sceneLabel() {
+    return currentH2 || currentH1 || "";
+  }
+
+  function addWords(charName: string, words: number) {
+    if (!stats[charName]) stats[charName] = { lines: 0, words: 0, scenes: [] };
+    stats[charName].words += words;
+    if (words === 0) return;
+    const lbl = sceneLabel();
+    const existing = stats[charName].scenes.find((s) => s.label === lbl);
+    if (existing) existing.words += words;
+    else stats[charName].scenes.push({ label: lbl, words });
+  }
+
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line || line.startsWith("//") || /^---+$/.test(line)) continue;
+
+    const h1 = line.match(/^#(?!#)\s*(.*)/);
+    if (h1) { currentH1 = h1[1].trim(); currentH2 = ""; currentChar = null; continue; }
+
+    const h2 = line.match(/^##\s*(.*)/);
+    if (h2) { currentH2 = h2[1].trim(); currentChar = null; continue; }
+
+    const charLine = line.match(/^@(\S+)(.*)?$/);
+    if (charLine) {
+      const name = charLine[1].toUpperCase();
+      currentChar = name;
+      if (!stats[name]) stats[name] = { lines: 0, words: 0, scenes: [] };
+      stats[name].lines++;
+      const inlineText = (charLine[2] ?? "").replace(/[()]/g, " ").trim();
+      if (inlineText) addWords(name, inlineText.split(/\s+/).filter(Boolean).length);
+      continue;
+    }
+
+    // Dialogue continuation
+    if (currentChar) {
+      const words = line.replace(/[()]/g, " ").split(/\s+/).filter(Boolean).length;
+      addWords(currentChar, words);
+    }
+  }
+
+  const characters = Object.keys(stats).sort(
+    (a, b) => (stats[b]?.words ?? 0) - (stats[a]?.words ?? 0)
+  );
+  return { characters, charStats: stats };
+}
+
+// ─── Characters panel (editor-only, no role toggle, no AI) ────────────────────
+
+function CharactersPanel({
+  characters,
+  charStats,
+  onClose,
+}: {
+  characters: string[];
+  charStats: Record<string, EditorCharStat>;
+  onClose: () => void;
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const totalWords = Object.values(charStats).reduce((s, c) => s + c.words, 0);
+
+  function toggle(ch: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(ch)) next.delete(ch);
+      else next.add(ch);
+      return next;
+    });
+  }
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", justifyContent: "flex-end" }}
+    >
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)" }} />
+      <div
+        style={{
+          position: "relative",
+          width: "min(420px, 100vw)",
+          height: "100%",
+          background: "var(--bg-elev)",
+          borderLeft: "1px solid var(--rule)",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            height: 52,
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 20px",
+            borderBottom: "1px solid var(--rule)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 500 }}>
+              Characters
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                color: "var(--ink-faint)",
+              }}
+            >
+              {characters.length}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--ink-muted)", display: "flex" }}
+          >
+            <X size={16} color="currentColor" />
+          </button>
+        </div>
+
+        {/* List */}
+        <div style={{ flex: 1, overflow: "auto", padding: "16px 20px" }}>
+          {characters.length === 0 ? (
+            <p style={{ fontSize: 13, color: "var(--ink-faint)", fontStyle: "italic", margin: 0 }}>
+              No characters yet. Use <code style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--accent)" }}>@NAME</code> to add one.
+            </p>
+          ) : (
+            <>
+              {/* Column headers */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto auto",
+                  gap: "0 12px",
+                  padding: "0 12px 8px",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 9,
+                  textTransform: "uppercase",
+                  letterSpacing: 1.2,
+                  color: "var(--ink-faint)",
+                }}
+              >
+                <span>Character</span>
+                <span style={{ textAlign: "right" }}>Lines</span>
+                <span style={{ textAlign: "right" }}>Words</span>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {characters.map((ch) => {
+                  const stat = charStats[ch];
+                  const isOpen = expanded.has(ch);
+                  const pct = stat && totalWords > 0 ? Math.round((stat.words / totalWords) * 100) : 0;
+                  const avg = stat && stat.lines > 0 ? (stat.words / stat.lines).toFixed(1) : "—";
+                  const top3 = stat
+                    ? [...stat.scenes]
+                        .filter((s) => s.label)
+                        .sort((a, b) => b.words - a.words)
+                        .slice(0, 3)
+                    : [];
+
+                  return (
+                    <div
+                      key={ch}
+                      style={{
+                        borderRadius: "var(--radius-md)",
+                        background: "var(--surface)",
+                        border: "1px solid var(--rule)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr auto auto",
+                          gap: "0 12px",
+                          alignItems: "center",
+                          padding: "10px 12px",
+                        }}
+                      >
+                        <button
+                          onClick={() => toggle(ch)}
+                          disabled={!stat}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            cursor: stat ? "pointer" : "default",
+                            minWidth: 0,
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: "flex",
+                              color: "var(--ink-faint)",
+                              flexShrink: 0,
+                              transform: isOpen ? "rotate(90deg)" : "none",
+                              transition: "transform 0.15s",
+                              opacity: stat ? 1 : 0,
+                            }}
+                          >
+                            <Chev size={9} color="currentColor" />
+                          </span>
+                          <span
+                            style={{
+                              fontFamily: "var(--font-mono)",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "var(--ink)",
+                              textTransform: "uppercase",
+                              letterSpacing: 0.8,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {ch}
+                          </span>
+                        </button>
+
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-muted)", textAlign: "right" }}>
+                          {stat?.lines ?? "—"}
+                        </span>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-muted)", textAlign: "right" }}>
+                          {stat?.words ?? "—"}
+                        </span>
+                      </div>
+
+                      {isOpen && stat && (
+                        <div
+                          style={{
+                            padding: "4px 12px 12px",
+                            borderTop: "1px solid var(--rule)",
+                            marginTop: -1,
+                          }}
+                        >
+                          <div style={{ display: "flex", gap: 16, padding: "10px 0 2px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>
+                                {pct}%
+                              </span>
+                              <span style={{ fontSize: 9.5, color: "var(--ink-faint)" }}>of script</span>
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
+                                {avg}
+                              </span>
+                              <span style={{ fontSize: 9.5, color: "var(--ink-faint)" }}>words / line</span>
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
+                                {stat.scenes.length}
+                              </span>
+                              <span style={{ fontSize: 9.5, color: "var(--ink-faint)" }}>scenes</span>
+                            </div>
+                          </div>
+
+                          {top3.length > 0 && (
+                            <>
+                              <div
+                                style={{
+                                  fontFamily: "var(--font-mono)",
+                                  fontSize: 9,
+                                  textTransform: "uppercase",
+                                  letterSpacing: 1.2,
+                                  color: "var(--ink-faint)",
+                                  marginTop: 8,
+                                  marginBottom: 4,
+                                }}
+                              >
+                                Top scenes
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                {top3.map((s, i) => (
+                                  <div
+                                    key={i}
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "center",
+                                      fontSize: 12,
+                                      padding: "3px 5px",
+                                    }}
+                                  >
+                                    <span style={{ color: "var(--ink-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                      {s.label || "—"}
+                                    </span>
+                                    <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-faint)", flexShrink: 0, marginLeft: 8 }}>
+                                      {s.words}w
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const ScriptEditor = dynamic(() => import("./ScriptEditor"), { ssr: false });
 
 interface EditShellProps {
@@ -118,6 +453,12 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [currentSection, setCurrentSection] = useState<{ h1: string | null; h2: string | null; headingLine: number | null } | null>(null);
 
+  // Live character parsing
+  const [charData, setCharData] = useState<{ characters: string[]; charStats: Record<string, EditorCharStat> }>(
+    () => parseCharacters(initialText)
+  );
+  const [charPanelOpen, setCharPanelOpen] = useState(false);
+
   // When ScriptEditor mounts it registers a trigger we can call to save from CodeMirror directly
   const triggerEditorSave = useRef<(() => void) | null>(null);
   const scrollToLine = useRef<((line: number) => void) | null>(null);
@@ -179,6 +520,7 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
     latestText.current = t;
     setHeadings(parseHeadings(t));
     setStatsText(t);
+    setCharData(parseCharacters(t));
   }, []);
 
   return (
@@ -252,6 +594,37 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
             }}
           />
         </div>
+
+        {/* Center: characters badge */}
+        {charData.characters.length > 0 && (
+          <button
+            onClick={() => setCharPanelOpen((v) => !v)}
+            title="View characters"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "4px 10px",
+              borderRadius: 999,
+              border: "1px solid var(--rule)",
+              background: charPanelOpen ? "var(--line)" : "transparent",
+              color: "var(--ink-muted)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              cursor: "pointer",
+              flexShrink: 0,
+              transition: "background 0.12s",
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+              <circle cx="4" cy="3.5" r="2" stroke="currentColor" strokeWidth="1.2" />
+              <path d="M1 9.5c0-1.657 1.343-3 3-3s3 1.343 3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              <circle cx="8.5" cy="3.5" r="1.5" stroke="currentColor" strokeWidth="1.1" />
+              <path d="M7 9.5c0-1.105.672-2 1.5-2s1.5.895 1.5 2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+            </svg>
+            {charData.characters.length}
+          </button>
+        )}
 
         {/* Right: delete + save */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -704,6 +1077,15 @@ export default function EditShell({ userPlayId, playTitle, initialText, initialS
 
       {/* ── Toast ── */}
       {toast && <Toast key={toast.id} message={toast.message} kind={toast.kind} duration={toast.duration} onDone={clearToast} />}
+
+      {/* ── Characters panel ── */}
+      {charPanelOpen && (
+        <CharactersPanel
+          characters={charData.characters}
+          charStats={charData.charStats}
+          onClose={() => setCharPanelOpen(false)}
+        />
+      )}
     </div>
   );
 }

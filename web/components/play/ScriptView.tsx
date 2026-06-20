@@ -156,18 +156,16 @@ function ActOpen({ text }: { text: string }) {
   );
 }
 
+// scene_direction — bare text outside character speech (e.g. location / time descriptions)
 function SceneOpen({ text }: { text: string }) {
   return (
     <div
       style={{
         fontFamily: "var(--font-display)",
         fontStyle: "italic",
-        fontSize: 16,
-        color: "var(--ink-muted)",
-        lineHeight: 1.7,
-        borderLeft: "2px solid var(--rule)",
-        paddingLeft: 16,
-        marginBottom: 4,
+        fontSize: 14,
+        color: "var(--ink-faint)",
+        lineHeight: 1.5,
       }}
     >
       {text}
@@ -175,19 +173,19 @@ function SceneOpen({ text }: { text: string }) {
   );
 }
 
+// action — parenthetical stage direction (e.g. "Alain s'avance")
 function ActionStage({ text }: { text: string }) {
   return (
     <div
       style={{
         fontFamily: "var(--font-display)",
         fontStyle: "italic",
-        fontSize: 15,
-        color: "var(--ink-muted)",
-        paddingLeft: 4,
-        lineHeight: 1.6,
+        fontSize: 14,
+        color: "var(--ink-faint)",
+        lineHeight: 1.5,
       }}
     >
-      [{text}]
+      ({text})
     </div>
   );
 }
@@ -397,7 +395,7 @@ function ScriptLine({
                 color: "var(--ink-muted)",
               }}
             >
-              ({entry.direction})
+              {entry.direction}
             </span>
           )}
         </div>

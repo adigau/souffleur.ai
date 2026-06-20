@@ -25,3 +25,16 @@ export interface ContentEntry {
   direction?: string;
   intent?: string;
 }
+
+/** Returns only the spoken text, stripping inline stage directions. */
+export function extractCleanSpeechText(entry: ContentEntry): string {
+  if (entry.segments) {
+    return entry.segments
+      .filter((s) => !s.action)
+      .map((s) => s.text ?? "")
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  return entry.text ?? "";
+}
