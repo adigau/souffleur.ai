@@ -8,6 +8,7 @@ import Mark from "@/components/ui/Mark";
 import Button from "@/components/ui/Button";
 import { Upload, Pencil, ArrowRight } from "@/components/ui/Icons";
 import { createNewPlay, addSampleToLibrary } from "@/lib/actions/plays";
+import { useImportPdf } from "@/hooks/useImportPdf";
 
 export default function LibraryEmpty() {
   const t = useTranslations("library");
@@ -16,6 +17,7 @@ export default function LibraryEmpty() {
   const prefix = locale === "fr" ? "/fr" : "";
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const { fileInputRef, handleFileChange, triggerFileInput, isImporting, importError } = useImportPdf();
 
   function handleWrite() {
     setError(null);
@@ -78,7 +80,7 @@ export default function LibraryEmpty() {
         {t("empty.subhead")}
       </div>
 
-      {error && (
+      {(error || importError) && (
         <div
           style={{
             maxWidth: 340,
@@ -90,7 +92,7 @@ export default function LibraryEmpty() {
             fontSize: 13,
           }}
         >
-          {error}
+          {error ?? importError}
         </div>
       )}
 
@@ -103,9 +105,22 @@ export default function LibraryEmpty() {
           maxWidth: 340,
         }}
       >
-        <Button size="lg" full disabled={isPending} style={{ opacity: isPending ? 0.6 : 1 }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,application/pdf"
+          style={{ display: "none" }}
+          onChange={handleFileChange}
+        />
+        <Button
+          size="lg"
+          full
+          disabled={isPending || isImporting}
+          onClick={triggerFileInput}
+          style={{ opacity: isPending || isImporting ? 0.6 : 1 }}
+        >
           <Upload size={15} />
-          {t("import")}
+          {isImporting ? t("importPdf.importing") : t("import")}
         </Button>
         <Button
           variant="secondary"

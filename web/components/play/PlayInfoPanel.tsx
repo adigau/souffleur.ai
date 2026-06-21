@@ -1,12 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { Sparkle, X, Chev } from "@/components/ui/Icons";
-
-interface ConfidenceOption {
-  value: string;
-  confidence: number;
-}
+import { SCRIPT_TYPE_VALUES, CATEGORY_VALUES, LANGUAGE_VALUES } from "@/lib/script-meta";
 
 interface CharacterProfile {
   gender: "male" | "female" | "neutral";
@@ -18,9 +15,8 @@ interface PlayAnalysis {
   description: string | null;
   summary: string | null;
   play_type: string | null;
-  play_type_options: ConfidenceOption[] | null;
+  script_type: string | null;
   detected_language: string | null;
-  detected_language_options: ConfidenceOption[] | null;
   character_profiles: Record<string, CharacterProfile> | null;
   updated_at: string | null;
 }
@@ -30,10 +26,6 @@ const AGE_RANGE_LABELS: Record<string, string> = {
   adult: "adult", elderly: "elderly",
 };
 
-const PLAY_TYPES = [
-  "tragedy", "comedy", "tragicomedy", "drama",
-  "farce", "musical", "melodrama", "historical", "thriller", "other",
-];
 
 function ShimmerLine({ width = "100%", height = 12 }: { width?: number | string; height?: number }) {
   return <div className="souffleur-shimmer" style={{ width, height, borderRadius: 3 }} />;
@@ -63,13 +55,6 @@ function AiBadge() {
   );
 }
 
-function languageDisplayName(code: string): string {
-  try {
-    return new Intl.DisplayNames([code], { type: "language" }).of(code) ?? code;
-  } catch {
-    return code;
-  }
-}
 
 function EditableText({
   value, placeholder, onSave, multiline = false,
@@ -184,6 +169,7 @@ export default function PlayInfoPanel({
   initialAnalysisState?: "ready" | "processing" | "attention";
   onClose: () => void;
 }) {
+  const tMeta = useTranslations("meta");
   const [analysis, setAnalysis] = useState<PlayAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedChars, setExpandedChars] = useState<Set<string>>(new Set());
@@ -265,29 +251,6 @@ export default function PlayInfoPanel({
     });
   }
 
-  function getConfidence(options: ConfidenceOption[] | null | undefined, value: string | null): number | null {
-    if (!options || !value) return null;
-    return options.find((o) => o.value === value)?.confidence ?? null;
-  }
-
-  function buildTypeOptions(opts: ConfidenceOption[] | null) {
-    if (opts && opts.length > 0) {
-      return opts.map((o) => ({
-        value: o.value,
-        label: o.value.charAt(0).toUpperCase() + o.value.slice(1),
-      }));
-    }
-    return PLAY_TYPES.map((t) => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) }));
-  }
-
-  function buildLangOptions(opts: ConfidenceOption[] | null) {
-    if (!opts || opts.length === 0) return null;
-    return opts.map((o) => ({
-      value: o.value,
-      label: languageDisplayName(o.value),
-    }));
-  }
-
   const showSkeleton = loading || (analysis === null && isProcessing);
 
   return (
@@ -358,16 +321,22 @@ export default function PlayInfoPanel({
         <div style={{ flex: 1, overflow: "auto", padding: "20px 18px" }}>
           {showSkeleton ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-              {/* Type + Language skeleton */}
+              {/* Format + Language skeleton */}
               <div style={{ display: "flex", gap: 12 }}>
                 <div style={{ flex: 1 }}>
-                  <div style={fieldLabel}>Type</div>
+                  <div style={fieldLabel}>Format</div>
                   <ShimmerLine height={32} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={fieldLabel}>Language</div>
                   <ShimmerLine height={32} />
                 </div>
+              </div>
+
+              {/* Category skeleton */}
+              <div>
+                <div style={fieldLabel}>Category</div>
+                <ShimmerLine height={32} />
               </div>
 
               {/* Description skeleton */}
@@ -457,56 +426,37 @@ export default function PlayInfoPanel({
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-              {/* Type + Language */}
+              {/* Format + Language */}
               <div style={{ display: "flex", gap: 12 }}>
                 <div style={{ flex: 1 }}>
-                  <div style={fieldLabel}>
-                    Type<AiBadge />
-                  </div>
-                  {(() => {
-                    const opts = buildTypeOptions(analysis.play_type_options ?? null);
-                    return (
-                      <select
-                        value={analysis.play_type ?? ""}
-                        onChange={(e) => save({ play_type: e.target.value })}
-                        style={selectStyle}
-                      >
-                        <option value="">—</option>
-                        {opts.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                    );
-                  })()}
+                  <div style={fieldLabel}>Format<AiBadge /></div>
+                  <select value={analysis.script_type ?? ""} onChange={(e) => save({ script_type: e.target.value })} style={selectStyle}>
+                    <option value="">—</option>
+                    {SCRIPT_TYPE_VALUES.map(({ value }) => (
+                      <option key={value} value={value}>{tMeta(`scriptType.${value}` as any)}</option>
+                    ))}
+                  </select>
                 </div>
-
                 <div style={{ flex: 1 }}>
-                  <div style={fieldLabel}>
-                    Language<AiBadge />
-                  </div>
-                  {(() => {
-                    const opts = buildLangOptions(analysis.detected_language_options ?? null);
-                    if (opts) {
-                      return (
-                        <select
-                          value={analysis.detected_language ?? ""}
-                          onChange={(e) => save({ detected_language: e.target.value } as Partial<PlayAnalysis>)}
-                          style={selectStyle}
-                        >
-                          <option value="">—</option>
-                          {opts.map((o) => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                          ))}
-                        </select>
-                      );
-                    }
-                    return (
-                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--ink-muted)", padding: "6px 0" }}>
-                        {analysis.detected_language ? languageDisplayName(analysis.detected_language) : "—"}
-                      </div>
-                    );
-                  })()}
+                  <div style={fieldLabel}>Language<AiBadge /></div>
+                  <select value={analysis.detected_language ?? ""} onChange={(e) => save({ detected_language: e.target.value } as Partial<PlayAnalysis>)} style={selectStyle}>
+                    <option value="">—</option>
+                    {LANGUAGE_VALUES.map(({ value }) => (
+                      <option key={value} value={value}>{tMeta(`language.${value}` as any)}</option>
+                    ))}
+                  </select>
                 </div>
+              </div>
+
+              {/* Category / Genre */}
+              <div>
+                <div style={fieldLabel}>Category<AiBadge /></div>
+                <select value={analysis.play_type ?? ""} onChange={(e) => save({ play_type: e.target.value })} style={selectStyle}>
+                  <option value="">—</option>
+                  {CATEGORY_VALUES.map(({ value }) => (
+                    <option key={value} value={value}>{tMeta(`category.${value}` as any)}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Description */}

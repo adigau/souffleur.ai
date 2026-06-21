@@ -1,17 +1,67 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import LibCard, { type Play } from "./LibCard";
+import LibCard, { type Play, SCRIPT_TYPE_META, CATEGORY_META } from "./LibCard";
 import LibraryEmpty from "./LibraryEmpty";
 import { Upload, Search } from "@/components/ui/Icons";
 import Button from "@/components/ui/Button";
 import { createNewPlay } from "@/lib/actions/plays";
 import { useRealtimePlays } from "@/hooks/useRealtimePlays";
+import { LANGUAGE_VALUES } from "@/lib/script-meta";
 
 interface LibraryDesktopProps {
   plays: Play[];
+}
+
+function FilterPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        fontFamily: "var(--font-mono)",
+        fontSize: 10,
+        fontWeight: 600,
+        textTransform: "uppercase",
+        letterSpacing: 0.7,
+        padding: "3px 9px",
+        borderRadius: 99,
+        border: `1px solid ${active ? "var(--accent)" : "var(--rule)"}`,
+        background: active ? "var(--accent-soft)" : "var(--surface)",
+        color: active ? "var(--accent)" : "var(--ink-faint)",
+        cursor: "pointer",
+        transition: "all 0.12s",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function FilterRow({ heading, values, active, onSelect }: {
+  heading: string;
+  values: { value: string; label: string }[];
+  active: string | null;
+  onSelect: (v: string | null) => void;
+}) {
+  return (
+    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8, color: "var(--ink-faint)", marginRight: 2, flexShrink: 0 }}>
+        {heading}
+      </span>
+      <FilterPill label="All" active={active === null} onClick={() => onSelect(null)} />
+      {values.map(({ value, label }) => (
+        <FilterPill
+          key={value}
+          label={label}
+          active={active === value}
+          onClick={() => onSelect(active === value ? null : value)}
+        />
+      ))}
+    </div>
+  );
 }
 
 export default function LibraryDesktop({ plays: initialPlays }: LibraryDesktopProps) {
@@ -19,8 +69,13 @@ export default function LibraryDesktop({ plays: initialPlays }: LibraryDesktopPr
   const locale = useLocale();
   const router = useRouter();
   const prefix = locale === "fr" ? "/fr" : "";
+  const tMeta = useTranslations("meta");
   const [isPending, startTransition] = useTransition();
   const plays = useRealtimePlays(initialPlays);
+
+  const [scriptTypeFilter, setScriptTypeFilter] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter]     = useState<string | null>(null);
+  const [langFilter, setLangFilter]             = useState<string | null>(null);
 
   function handleWrite() {
     startTransition(async () => {
@@ -32,115 +87,82 @@ export default function LibraryDesktop({ plays: initialPlays }: LibraryDesktopPr
 
   if (plays.length === 0) {
     return (
-      <div
-        style={{
-          padding: "28px 32px",
-          height: "100%",
-          boxSizing: "border-box",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+      <div style={{ padding: "28px 32px", height: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
         <LibraryEmpty />
       </div>
     );
   }
 
+  // Collect distinct values that are actually present in the library
+  const scriptTypesPresent = [...new Set(plays.map((p) => p.script_type).filter(Boolean))] as string[];
+  const categoriesPresent  = [...new Set(plays.map((p) => p.play_type).filter(Boolean))]   as string[];
+  const langsPresent       = [...new Set(plays.map((p) => p.detected_language).filter(Boolean))] as string[];
+
+  // Build filter option lists from our hardcoded meta (preserving canonical order)
+  const scriptTypeOpts = Object.keys(SCRIPT_TYPE_META)
+    .filter((v) => scriptTypesPresent.includes(v))
+    .map((v) => ({ value: v, label: tMeta(`scriptType.${v}` as any) }));
+
+  const categoryOpts = Object.keys(CATEGORY_META)
+    .filter((v) => categoriesPresent.includes(v))
+    .map((v) => ({ value: v, label: tMeta(`category.${v}` as any) }));
+
+  const langOpts = LANGUAGE_VALUES
+    .filter((l) => langsPresent.includes(l.value))
+    .map((l) => ({ value: l.value, label: tMeta(`language.${l.value}` as any) }));
+
+  const hasFilters = scriptTypeOpts.length >= 1 || categoryOpts.length >= 1 || langOpts.length >= 1;
+
+  const filteredPlays = plays.filter((p) => {
+    if (scriptTypeFilter && p.script_type    !== scriptTypeFilter) return false;
+    if (categoryFilter   && p.play_type      !== categoryFilter)   return false;
+    if (langFilter       && p.detected_language !== langFilter)    return false;
+    return true;
+  });
+
   return (
-    <div
-      style={{
-        padding: "28px 32px",
-        height: "100%",
-        overflow: "auto",
-        boxSizing: "border-box",
-      }}
-    >
+    <div style={{ padding: "28px 32px", height: "100%", overflow: "auto", boxSizing: "border-box" }}>
       {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          marginBottom: 22,
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 16 }}>
         <div>
-          <div
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: 30,
-              fontWeight: 500,
-              letterSpacing: -0.6,
-            }}
-          >
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 500, letterSpacing: -0.6 }}>
             {t("title")}
           </div>
           <div style={{ fontSize: 13, color: "var(--ink-muted)", marginTop: 4 }}>
             {plays.length} {t("subtitle")}
           </div>
         </div>
-
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* Search */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              height: 36,
-              padding: "0 12px",
-              width: 200,
-              background: "var(--surface)",
-              border: "1px solid var(--rule)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--ink-faint)",
-              fontSize: 13,
-              fontFamily: "var(--font-body)",
-            }}
-          >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, height: 36, padding: "0 12px", width: 200, background: "var(--surface)", border: "1px solid var(--rule)", borderRadius: "var(--radius-md)", color: "var(--ink-faint)", fontSize: 13, fontFamily: "var(--font-body)" }}>
             <Search size={14} />
             {t("searchPlaceholder")}
           </div>
-
-          <Button variant="secondary" size="sm" onClick={handleWrite} disabled={isPending}>
-            {t("write")}
-          </Button>
-          <Button size="sm" disabled>
-            <Upload size={14} />
-            {t("import")}
-          </Button>
+          <Button variant="secondary" size="sm" onClick={handleWrite} disabled={isPending}>{t("write")}</Button>
+          <Button size="sm" disabled><Upload size={14} />{t("import")}</Button>
         </div>
       </div>
 
+      {/* Filters */}
+      {hasFilters && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 20 }}>
+          {scriptTypeOpts.length >= 1 && (
+            <FilterRow heading="Format" values={scriptTypeOpts} active={scriptTypeFilter} onSelect={setScriptTypeFilter} />
+          )}
+          {categoryOpts.length >= 1 && (
+            <FilterRow heading="Category" values={categoryOpts} active={categoryFilter} onSelect={setCategoryFilter} />
+          )}
+          {langOpts.length >= 1 && (
+            <FilterRow heading="Language" values={langOpts} active={langFilter} onSelect={setLangFilter} />
+          )}
+        </div>
+      )}
+
       {/* Grid */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 16,
-        }}
-      >
-        {plays.map((play) => (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+        {filteredPlays.map((play) => (
           <LibCard key={play.id} play={play} />
         ))}
-
-        {/* Drop zone */}
-        <div
-          style={{
-            border: "1.5px dashed var(--rule)",
-            borderRadius: "var(--radius-lg)",
-            padding: 20,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            color: "var(--ink-faint)",
-            fontSize: 12.5,
-            textAlign: "center",
-            minHeight: 150,
-          }}
-        >
+        <div style={{ border: "1.5px dashed var(--rule)", borderRadius: "var(--radius-lg)", padding: 20, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--ink-faint)", fontSize: 12.5, textAlign: "center", minHeight: 150 }}>
           <Upload size={18} color="var(--ink-faint)" />
           <span>
             {t("dropHint").split(" to ")[0]}

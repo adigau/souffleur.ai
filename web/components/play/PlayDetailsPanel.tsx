@@ -6,11 +6,7 @@ import { Sparkle, X, Chev, Check, Pencil } from "@/components/ui/Icons";
 import { toggleUserPlayRole } from "@/lib/actions/plays";
 import { usePlayRoles } from "@/contexts/PlayRolesContext";
 import { useSceneNav } from "@/contexts/SceneNavContext";
-
-interface ConfidenceOption {
-  value: string;
-  confidence: number;
-}
+import { SCRIPT_TYPE_VALUES, CATEGORY_VALUES, LANGUAGE_VALUES } from "@/lib/script-meta";
 
 interface CharacterProfile {
   gender: "male" | "female" | "neutral";
@@ -23,9 +19,8 @@ export interface PlayAnalysis {
   description: string | null;
   summary: string | null;
   play_type: string | null;
-  play_type_options: ConfidenceOption[] | null;
+  script_type: string | null;
   detected_language: string | null;
-  detected_language_options: ConfidenceOption[] | null;
   character_profiles: Record<string, CharacterProfile> | null;
   updated_at: string | null;
 }
@@ -50,36 +45,11 @@ interface CharStat {
   scenes: SceneStat[];
 }
 
-const AGE_RANGE_LABELS: Record<string, string> = {
-  child: "child", teen: "teen", young_adult: "young adult", adult: "adult", elderly: "elderly",
-};
-
-const GENDER_OPTIONS = [
-  { value: "male", label: "Male" },
-  { value: "female", label: "Female" },
-  { value: "neutral", label: "Neutral / Unknown" },
-];
-
-const AGE_RANGE_OPTIONS = [
-  { value: "child", label: "Child" },
-  { value: "teen", label: "Teen" },
-  { value: "young_adult", label: "Young adult" },
-  { value: "adult", label: "Adult" },
-  { value: "elderly", label: "Elderly" },
-];
-
-const PLAY_TYPES = [
-  "tragedy", "comedy", "tragicomedy", "drama",
-  "farce", "musical", "melodrama", "historical", "thriller", "other",
-];
+const GENDER_VALUES  = ["male", "female", "neutral"] as const;
+const AGE_RANGE_VALUES = ["child", "teen", "young_adult", "adult", "elderly"] as const;
 
 function ShimmerLine({ width = "100%", height = 12 }: { width?: number | string; height?: number }) {
   return <div className="souffleur-shimmer" style={{ width, height, borderRadius: 3 }} />;
-}
-
-function langDisplay(code: string): string {
-  try { return new Intl.DisplayNames([code], { type: "language" }).of(code) ?? code; }
-  catch { return code; }
 }
 
 // Shows a value as text with a subtle pencil icon; clicking pencil opens a select or input
@@ -242,7 +212,8 @@ export default function PlayDetailsPanel({
   initialAnalysisState?: "ready" | "processing" | "attention";
   onClose: () => void;
 }) {
-  const t = useTranslations("play");
+  const t     = useTranslations("play");
+  const tMeta = useTranslations("meta");
   const uiLocale = useLocale();
   const { roles, setRoles } = usePlayRoles();
   const { requestSceneJump } = useSceneNav();
@@ -360,26 +331,6 @@ export default function PlayDetailsPanel({
     });
   }
 
-  function buildTypeOptions(opts: ConfidenceOption[] | null) {
-    if (opts && opts.length > 0) return opts.map((o) => ({ value: o.value, label: o.value.charAt(0).toUpperCase() + o.value.slice(1) }));
-    return PLAY_TYPES.map((t) => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) }));
-  }
-
-  const COMMON_LANG_CODES = [
-    "fr", "en", "de", "es", "it", "pt", "ru", "nl",
-    "pl", "sv", "da", "no", "fi", "cs", "hu", "ro",
-    "el", "tr", "ar", "ja", "zh", "ko", "la",
-  ];
-
-  function buildLangOptions(opts: ConfidenceOption[] | null) {
-    const detected = (opts ?? []).map((o) => ({ value: o.value, label: langDisplay(o.value) }));
-    const detectedSet = new Set(detected.map((o) => o.value));
-    const rest = COMMON_LANG_CODES
-      .filter((c) => !detectedSet.has(c))
-      .map((c) => ({ value: c, label: langDisplay(c) }));
-    return [...detected, ...rest];
-  }
-
   const otherPlayers = new Map<string, { displayName: string; email: string }>();
   for (const m of cast) {
     if (!m.is_you) otherPlayers.set(m.role, { displayName: m.display_name, email: m.email });
@@ -466,13 +417,17 @@ export default function PlayDetailsPanel({
               <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
                 <div style={{ display: "flex", gap: 24 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={fieldLabel}>{t("details.type")}</div>
+                    <div style={fieldLabel}>{t("details.format")}</div>
                     <ShimmerLine width={72} height={18} />
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={fieldLabel}>{t("details.language")}</div>
                     <ShimmerLine width={80} height={18} />
                   </div>
+                </div>
+                <div>
+                  <div style={fieldLabel}>{t("details.category")}</div>
+                  <ShimmerLine width={72} height={18} />
                 </div>
                 <div>
                   <div style={fieldLabel}>{t("details.description")}</div>
@@ -499,14 +454,15 @@ export default function PlayDetailsPanel({
               </div>
             ) : analysis ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                {/* Type + Language as confident text values */}
+                {/* Format + Language */}
                 <div style={{ display: "flex", gap: 24 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={fieldLabel}>{t("details.type")}</div>
+                    <div style={fieldLabel}>{t("details.format")}</div>
                     <EditableValue
-                      value={analysis.play_type ?? ""}
-                      options={buildTypeOptions(analysis.play_type_options ?? null)}
-                      onSave={(v) => save({ play_type: v })}
+                      value={analysis.script_type ?? ""}
+                      options={SCRIPT_TYPE_VALUES.map(({ value }) => ({ value, label: tMeta(`scriptType.${value}` as any) }))}
+                      onSave={(v) => save({ script_type: v })}
+                      display={(v) => tMeta(`scriptType.${v}` as any)}
                       placeholder={t("details.unknown")}
                       editTitle={t("details.edit")}
                     />
@@ -515,13 +471,26 @@ export default function PlayDetailsPanel({
                     <div style={fieldLabel}>{t("details.language")}</div>
                     <EditableValue
                       value={analysis.detected_language ?? ""}
-                      options={buildLangOptions(analysis.detected_language_options ?? null)}
+                      options={LANGUAGE_VALUES.map(({ value }) => ({ value, label: tMeta(`language.${value}` as any) }))}
                       onSave={(v) => save({ detected_language: v } as any)}
-                      display={langDisplay}
+                      display={(v) => tMeta(`language.${v}` as any)}
                       placeholder={t("details.unknown")}
                       editTitle={t("details.edit")}
                     />
                   </div>
+                </div>
+
+                {/* Category */}
+                <div>
+                  <div style={fieldLabel}>{t("details.category")}</div>
+                  <EditableValue
+                    value={analysis.play_type ?? ""}
+                    options={CATEGORY_VALUES.map(({ value }) => ({ value, label: tMeta(`category.${value}` as any) }))}
+                    onSave={(v) => save({ play_type: v })}
+                    display={(v) => tMeta(`category.${v}` as any)}
+                    placeholder={t("details.unknown")}
+                    editTitle={t("details.edit")}
+                  />
                 </div>
 
                 <div>
@@ -722,12 +691,12 @@ export default function PlayDetailsPanel({
                                     <div style={miniHeader}>{t("details.profileGender")}</div>
                                     <EditableValue
                                       value={profile.gender ?? ""}
-                                      options={GENDER_OPTIONS}
+                                      options={GENDER_VALUES.map((v) => ({ value: v, label: tMeta(`gender.${v}` as any) }))}
                                       onSave={(v) => {
                                         saveCharProfile(ch, "gender", v);
                                         regenDescription(ch, v, profile.age_range ?? "adult");
                                       }}
-                                      display={(v) => v.charAt(0).toUpperCase() + v.slice(1)}
+                                      display={(v) => tMeta(`gender.${v}` as any)}
                                       editTitle={t("details.edit")}
                                     />
                                   </div>
@@ -735,12 +704,12 @@ export default function PlayDetailsPanel({
                                     <div style={miniHeader}>{t("details.profileAge")}</div>
                                     <EditableValue
                                       value={profile.age_range ?? ""}
-                                      options={AGE_RANGE_OPTIONS}
+                                      options={AGE_RANGE_VALUES.map((v) => ({ value: v, label: tMeta(`ageRange.${v}` as any) }))}
                                       onSave={(v) => {
                                         saveCharProfile(ch, "age_range", v);
                                         regenDescription(ch, profile.gender ?? "neutral", v);
                                       }}
-                                      display={(v) => AGE_RANGE_LABELS[v] ?? v}
+                                      display={(v) => tMeta(`ageRange.${v}` as any)}
                                       editTitle={t("details.edit")}
                                     />
                                   </div>

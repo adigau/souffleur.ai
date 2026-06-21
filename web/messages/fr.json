@@ -64,8 +64,8 @@
   },
   "library": {
     "title": "Votre bibliothèque",
-    "subtitle": "pièces · répété récemment",
-    "searchPlaceholder": "Rechercher une pièce",
+    "subtitle": "scripts · répété récemment",
+    "searchPlaceholder": "Rechercher un script",
     "write": "Écrire",
     "import": "Importer un PDF",
     "dropHint": "Déposez un PDF n'importe où pour commencer",
@@ -129,6 +129,8 @@
       "analysing": "Analyse…",
       "overview": "Aperçu",
       "type": "Type",
+      "format": "Format",
+      "category": "Catégorie",
       "language": "Langue",
       "description": "Description",
       "summary": "Résumé",
@@ -238,6 +240,63 @@
       "coachPlaceholder": "Pose une question sur cette scène…",
       "coachMotivation": "Pose des questions sur la motivation, le sous-texte ou comment jouer une réplique.",
       "coachError": "Désolé, une erreur est survenue."
+    }
+  },
+  "meta": {
+    "gender": {
+      "male": "Homme",
+      "female": "Femme",
+      "neutral": "Neutre / Inconnu"
+    },
+    "ageRange": {
+      "child": "Enfant",
+      "teen": "Adolescent",
+      "young_adult": "Jeune adulte",
+      "adult": "Adulte",
+      "elderly": "Âgé"
+    },
+    "scriptType": {
+      "theater_play": "Pièce de théâtre",
+      "movie": "Film",
+      "short_film": "Court-métrage",
+      "tv_episode": "Épisode de série",
+      "sitcom": "Sitcom",
+      "musical": "Comédie musicale",
+      "opera": "Opéra",
+      "monologue": "Monologue",
+      "radio_drama": "Pièce radiophonique"
+    },
+    "category": {
+      "drama": "Drame",
+      "comedy": "Comédie",
+      "tragedy": "Tragédie",
+      "tragicomedy": "Tragi-comédie",
+      "romance": "Romance",
+      "thriller": "Thriller",
+      "horror": "Horreur",
+      "crime": "Policier",
+      "historical": "Historique",
+      "fantasy": "Fantastique",
+      "sci_fi": "Science-fiction",
+      "action": "Action",
+      "satire": "Satire",
+      "farce": "Farce",
+      "musical": "Comédie musicale",
+      "other": "Autre"
+    },
+    "language": {
+      "en": "Anglais",
+      "fr": "Français",
+      "de": "Allemand",
+      "es": "Espagnol",
+      "it": "Italien",
+      "pt": "Portugais",
+      "ru": "Russe",
+      "nl": "Néerlandais",
+      "ja": "Japonais",
+      "zh": "Chinois",
+      "ar": "Arabe",
+      "other": "Autre"
     }
   }
 }

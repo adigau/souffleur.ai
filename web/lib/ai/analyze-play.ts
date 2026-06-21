@@ -18,6 +18,8 @@ export interface PlayAnalysis {
   summary: string;
   play_type: string;
   play_type_options: ConfidenceOption[];
+  script_type: string;
+  script_type_options: ConfidenceOption[];
   detected_language: string;
   detected_language_options: ConfidenceOption[];
   characters: Record<string, CharacterProfile>;
@@ -43,17 +45,27 @@ function extractSpeechLines(scenes: { content: ContentEntry[] }[]): string {
   return lines.join("\n");
 }
 
-function buildPrompt(scriptExcerpt: string): string {
-  return `You are analyzing a theatrical play script. Return ONLY a valid JSON object with this exact shape — no markdown, no explanation:
+const LOCALE_TO_LANGUAGE: Record<string, string> = {
+  en: "English", fr: "French", de: "German", es: "Spanish",
+  it: "Italian", pt: "Portuguese", ru: "Russian", nl: "Dutch",
+  ja: "Japanese", zh: "Chinese", ar: "Arabic",
+};
+
+function buildPrompt(scriptExcerpt: string, uiLocale = "en"): string {
+  const uiLanguage = LOCALE_TO_LANGUAGE[uiLocale] ?? "English";
+  return `You are analyzing a script. Return ONLY a valid JSON object with this exact shape — no markdown, no explanation:
 
 {
   "description": "<1-2 sentence short description suitable for a library card>",
   "summary": "<2-3 sentence plot summary covering the main arc>",
+  "script_type_options": [
+    { "value": "<type>", "confidence": <0.0-1.0> }
+  ],
   "play_type_options": [
     { "value": "<type>", "confidence": <0.0-1.0> }
   ],
   "detected_language_options": [
-    { "value": "<ISO 639-1 code>", "confidence": <0.0-1.0> }
+    { "value": "<code>", "confidence": <0.0-1.0> }
   ],
   "characters": {
     "CHARACTER_NAME": {
@@ -65,26 +77,36 @@ function buildPrompt(scriptExcerpt: string): string {
   }
 }
 
-Rules for play_type_options:
-- Include all plausible genres, sorted by confidence descending
-- Values must be from: tragedy, comedy, tragicomedy, drama, farce, musical, melodrama, historical, thriller, other
-- Confidences must sum to ≤ 1.0; include only types with confidence > 0.05
+Rules for script_type_options — the FORMAT or MEDIUM of the script:
+- Values must be EXACTLY one of: theater_play, movie, short_film, tv_episode, sitcom, musical, opera, monologue, radio_drama
+  - theater_play: stage play with acts/scenes
+  - movie: feature-length film screenplay
+  - short_film: short-format film script
+  - tv_episode: scripted TV drama episode
+  - sitcom: comedic TV episode
+  - musical: stage or screen musical with songs
+  - opera: sung theatrical work
+  - monologue: single-speaker dramatic piece
+  - radio_drama: audio-only drama / podcast
+- Sort by confidence descending; confidences must sum to ≤ 1.0; omit values with confidence < 0.05
 
-Rules for detected_language_options:
-- Include all languages present, sorted by confidence descending
-- Use ISO 639-1 codes (en, fr, de, es, it, pt, ru, nl, pl, sv, ja, zh, ar, etc.)
-- If the script is clearly one language, give it confidence 0.97+
+Rules for play_type_options — the GENRE or CATEGORY:
+- Values must be EXACTLY one of: drama, comedy, tragedy, tragicomedy, romance, thriller, horror, crime, historical, fantasy, sci_fi, action, satire, farce, musical, other
+- Sort by confidence descending; confidences must sum to ≤ 1.0; omit values with confidence < 0.05
 
-Rules for language:
-- Write description, summary, and character description fields in the same language as the script
-- If the script is in French, write all text fields in French; if English, in English; etc.
+Rules for detected_language_options — the PRIMARY LANGUAGE of the script:
+- Values must be EXACTLY one of: en, fr, de, es, it, pt, ru, nl, ja, zh, ar, other
+- Sort by confidence descending; if the script is clearly one language, give it confidence 0.97+
+- confidences must sum to ≤ 1.0
+
+Rules for text fields:
+- Write description, summary, and ALL character descriptions in ${uiLanguage} (the user's interface language), regardless of the script's language
 
 Rules for characters:
-- Include ALL characters: both those with spoken lines AND those only mentioned in dialogue
-- A character has has_dialogue: true if and only if their name appears as a speaker cue (e.g. "CHARACTER: speech text") in the script — even if they are also mentioned by other characters. Never mark a speaking character as false.
-- has_dialogue: false is reserved strictly for characters who are referenced or mentioned in dialogue but have zero lines of their own
+- Include ALL characters: those with spoken lines AND those only mentioned in dialogue
+- has_dialogue: true only if the character appears as a speaker cue in the script
 - Use exact character names as they appear (uppercase)
-- age_range must be one of the five exact values
+- age_range must be exactly one of: child, teen, young_adult, adult, elderly
 
 Script:
 ${scriptExcerpt.slice(0, 80000)}`;
@@ -104,7 +126,8 @@ async function updateUserPlayProgress(
 export async function analyzePlay(
   playId: string,
   userPlayId: string,
-  scriptText: string
+  scriptText: string,
+  uiLocale = "en"
 ): Promise<void> {
   if (!process.env.ANTHROPIC_API_KEY) {
     console.warn("[analyzePlay] ANTHROPIC_API_KEY not set — skipping");
@@ -145,7 +168,7 @@ export async function analyzePlay(
     const msg = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 2048,
-      messages: [{ role: "user", content: buildPrompt(speechText) }],
+      messages: [{ role: "user", content: buildPrompt(speechText, uiLocale) }],
     });
     raw = msg.content[0].type === "text" ? msg.content[0].text : "";
   } catch (err) {
@@ -168,6 +191,7 @@ export async function analyzePlay(
 
   // Derive top picks from options arrays
   const topType = analysis.play_type_options?.[0]?.value ?? "other";
+  const topScriptType = analysis.script_type_options?.[0]?.value ?? "theater_play";
   const topLang = analysis.detected_language_options?.[0]?.value ?? "en";
 
   const { error } = await supabase.from("play_ai_analysis").upsert(
@@ -178,6 +202,8 @@ export async function analyzePlay(
       summary: analysis.summary,
       play_type: topType,
       play_type_options: analysis.play_type_options ?? [],
+      script_type: topScriptType,
+      script_type_options: analysis.script_type_options ?? [],
       detected_language: topLang,
       detected_language_options: analysis.detected_language_options ?? [],
       character_profiles: analysis.characters,

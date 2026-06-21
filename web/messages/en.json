@@ -64,8 +64,8 @@
   },
   "library": {
     "title": "Your library",
-    "subtitle": "plays · practiced recently",
-    "searchPlaceholder": "Search plays",
+    "subtitle": "scripts · practiced recently",
+    "searchPlaceholder": "Search scripts",
     "write": "Write",
     "import": "Import a PDF",
     "dropHint": "Drop a PDF anywhere to start a new play",
@@ -129,6 +129,8 @@
       "analysing": "Analysing…",
       "overview": "Overview",
       "type": "Type",
+      "format": "Format",
+      "category": "Category",
       "language": "Language",
       "description": "Description",
       "summary": "Summary",
@@ -238,6 +240,63 @@
       "coachPlaceholder": "Ask about this scene…",
       "coachMotivation": "Ask about motivation, subtext, or how to play a line.",
       "coachError": "Sorry, something went wrong."
+    }
+  },
+  "meta": {
+    "gender": {
+      "male": "Male",
+      "female": "Female",
+      "neutral": "Neutral / Unknown"
+    },
+    "ageRange": {
+      "child": "Child",
+      "teen": "Teen",
+      "young_adult": "Young adult",
+      "adult": "Adult",
+      "elderly": "Elderly"
+    },
+    "scriptType": {
+      "theater_play": "Theater play",
+      "movie": "Movie",
+      "short_film": "Short film",
+      "tv_episode": "TV episode",
+      "sitcom": "Sitcom",
+      "musical": "Musical",
+      "opera": "Opera",
+      "monologue": "Monologue",
+      "radio_drama": "Radio / Audio drama"
+    },
+    "category": {
+      "drama": "Drama",
+      "comedy": "Comedy",
+      "tragedy": "Tragedy",
+      "tragicomedy": "Tragicomedy",
+      "romance": "Romance",
+      "thriller": "Thriller",
+      "horror": "Horror",
+      "crime": "Crime",
+      "historical": "Historical",
+      "fantasy": "Fantasy",
+      "sci_fi": "Sci-fi",
+      "action": "Action",
+      "satire": "Satire",
+      "farce": "Farce",
+      "musical": "Musical",
+      "other": "Other"
+    },
+    "language": {
+      "en": "English",
+      "fr": "French",
+      "de": "German",
+      "es": "Spanish",
+      "it": "Italian",
+      "pt": "Portuguese",
+      "ru": "Russian",
+      "nl": "Dutch",
+      "ja": "Japanese",
+      "zh": "Chinese",
+      "ar": "Arabic",
+      "other": "Other"
     }
   }
 }

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
+import { getLocale } from "next-intl/server";
 import { parseSSF, type SsfError, type ParsedScene } from "@/lib/script-format";
 import { analyzePlay } from "@/lib/ai/analyze-play";
 import { syncAudioLines } from "@/lib/ai/sync-audio-lines";
@@ -205,8 +206,10 @@ export async function savePlayScript(
   // Revalidate for all locales
   revalidatePath("/", "layout");
 
+  const uiLocale = await getLocale();
+
   // Background: analyze play with AI + sync audio line rows (non-blocking)
-  after(() => analyzePlay(playId, userPlayId, rawText));
+  after(() => analyzePlay(playId, userPlayId, rawText, uiLocale));
   after(() => syncAudioLines(playId));
 
   return { ok: true, errors, scenesWritten: scenes.length };

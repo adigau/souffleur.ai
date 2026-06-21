@@ -25,7 +25,7 @@ export async function getUserPlays(): Promise<Play[]> {
         title,
         author,
         is_monologue,
-        play_ai_analysis ( description, play_type )
+        play_ai_analysis ( description, play_type, script_type, detected_language )
       )
     `)
     .eq("user_id", user.id)
@@ -49,6 +49,8 @@ export async function getUserPlays(): Promise<Play[]> {
       is_monologue: row.plays.is_monologue,
       description: analysis?.description ?? undefined,
       play_type: analysis?.play_type ?? undefined,
+      script_type: analysis?.script_type ?? undefined,
+      detected_language: analysis?.detected_language ?? undefined,
     };
   });
 }
@@ -138,8 +140,8 @@ export async function getPlayById(userPlayId: string) {
         is_sample,
         language,
         play_ai_analysis (
-          play_type, play_type_options,
-          detected_language, detected_language_options,
+          play_type, script_type,
+          detected_language,
           description, summary, character_profiles, updated_at
         ),
         scenes (

@@ -137,9 +137,8 @@ export default async function PlayPage({ params, searchParams }: Props) {
     description: aiRow.description ?? null,
     summary: aiRow.summary ?? null,
     play_type: aiRow.play_type ?? null,
-    play_type_options: aiRow.play_type_options ?? null,
+    script_type: aiRow.script_type ?? null,
     detected_language: aiRow.detected_language ?? null,
-    detected_language_options: aiRow.detected_language_options ?? null,
     character_profiles: aiRow.character_profiles ?? null,
     updated_at: aiRow.updated_at ?? null,
   } : null;

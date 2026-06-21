@@ -25,7 +25,7 @@ export async function GET(
 
   const { data } = await supabase
     .from("play_ai_analysis")
-    .select("description, summary, play_type, play_type_options, detected_language, detected_language_options, character_profiles, updated_at")
+    .select("description, summary, play_type, play_type_options, script_type, script_type_options, detected_language, detected_language_options, character_profiles, updated_at")
     .eq("play_id", playId)
     .maybeSingle();
 
@@ -45,7 +45,7 @@ export async function PATCH(
   if (!playId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
-  const allowed = ["description", "summary", "play_type", "detected_language", "character_profiles"] as const;
+  const allowed = ["description", "summary", "play_type", "script_type", "detected_language", "character_profiles"] as const;
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   for (const key of allowed) {
     if (key in body) patch[key] = body[key];
