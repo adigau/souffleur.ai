@@ -426,6 +426,8 @@ export function generatePlayPrintHtml(data: PrintPlayData): string {
   const speakingChars = characterProfiles
     ? Object.entries(characterProfiles).filter(([name]) => charsWithLines.has(name.toLowerCase()))
     : [];
+  // Fall back to the raw speaker count from content when AI profiles aren't available yet.
+  const charCount = speakingChars.length || charsWithLines.size;
 
   const sceneLabel = renderScenes.length === 1
     ? renderScenes[0].title?.replace(/^Scene\s+\d+\s*:\s*/i, "") || `Scène ${renderScenes[0].sort_order}`
@@ -474,7 +476,7 @@ export function generatePlayPrintHtml(data: PrintPlayData): string {
         ${scriptType ? `<div class="m"><span class="m-k">Format</span><span class="m-v">${esc(sanitizeLabel(scriptType))}</span></div>` : ""}
         ${playType ? `<div class="m"><span class="m-k">Genre</span><span class="m-v">${esc(sanitizeLabel(playType))}</span></div>` : ""}
         ${detectedLanguage ? `<div class="m"><span class="m-k">Langue</span><span class="m-v">${esc(displayLanguage(detectedLanguage))}</span></div>` : ""}
-        ${speakingChars.length > 0 ? `<div class="m"><span class="m-k">Distribution</span><span class="m-v">${speakingChars.length} personnage${speakingChars.length !== 1 ? "s" : ""}</span></div>` : ""}
+        ${charCount > 0 ? `<div class="m"><span class="m-k">Distribution</span><span class="m-v">${charCount} personnage${charCount !== 1 ? "s" : ""}</span></div>` : ""}
         ${totalLines > 0 ? `<div class="m"><span class="m-k">Répliques</span><span class="m-v">${totalLines}</span></div>` : ""}
       </div>
       ${sceneId ? `<p class="cover-scene-focus">Extrait de la pièce, ${esc(sceneLabel)}</p>` : sceneIds?.length ? `<p class="cover-scene-focus">Mes scènes uniquement — ${sceneIds.length} scène${sceneIds.length !== 1 ? "s" : ""} sur ${scenes.length}</p>` : ""}

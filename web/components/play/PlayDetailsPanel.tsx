@@ -227,6 +227,7 @@ export default function PlayDetailsPanel({
   const [hoveredRole, setHoveredRole] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [regenSet, setRegenSet] = useState<Set<string>>(new Set());
+  const [regenCoachingPending, setRegenCoachingPending] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooLongTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -330,6 +331,19 @@ export default function PlayDetailsPanel({
       }
     } finally {
       setRegenSet((prev) => { const next = new Set(prev); next.delete(ch); return next; });
+    }
+  }
+
+  async function regenCoaching() {
+    setRegenCoachingPending(true);
+    try {
+      await fetch(`/api/plays/${userPlayId}/regen-coaching`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uiLocale }),
+      });
+    } finally {
+      setRegenCoachingPending(false);
     }
   }
 
@@ -877,6 +891,23 @@ export default function PlayDetailsPanel({
               </>
             )}
           </div>
+
+          {/* Regenerate coaching data */}
+          {analysis && (
+            <button
+              onClick={regenCoaching}
+              disabled={regenCoachingPending}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "8px 10px", width: "100%",
+                background: "transparent", border: "1px solid var(--rule)", borderRadius: "var(--radius-md)",
+                cursor: regenCoachingPending ? "default" : "pointer", opacity: regenCoachingPending ? 0.6 : 1,
+                fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-faint)", textAlign: "left",
+              }}
+            >
+              <Sparkle size={11} color="var(--ink-faint)" />
+              <span>{regenCoachingPending ? t("details.regenCoachingPending") : t("details.regenCoaching")}</span>
+            </button>
+          )}
 
           {/* AI disclaimer */}
           {analysis && (

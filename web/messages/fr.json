@@ -209,6 +209,8 @@
       "playsMostWith": "Joue le plus avec",
       "topScenes": "Meilleures scènes",
       "addCharDesc": "Ajouter une description du personnage…",
+      "regenCoaching": "Actualiser l'analyse de coaching",
+      "regenCoachingPending": "Actualisation en cours…",
       "aiDisclaimer": "Généré par l'IA · Peut contenir des erreurs",
       "edit": "Modifier"
     },
