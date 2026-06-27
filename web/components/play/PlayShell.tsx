@@ -79,7 +79,7 @@ function PlayShellInner({
   initialDetailsOpen = false,
 }: PlayShellProps) {
   const { roles } = usePlayRoles();
-  const { currentReadSceneTitle } = useSceneNav();
+  const { currentReadSceneTitle, currentReadSceneId } = useSceneNav();
   const t     = useTranslations("play");
   const tMeta = useTranslations("meta");
   const locale = useLocale();
@@ -94,6 +94,8 @@ function PlayShellInner({
   const [showConfetti, setShowConfetti] = useState(false);
   const switcherRef = useRef<HTMLDivElement>(null);
   const prevAnalysisStateRef = useRef(analysisState);
+  const printFrameRef = useRef<HTMLIFrameElement>(null);
+  const printingRef = useRef(false);
 
   // Viewing the play in read/practice mode means the import-done overlay is no longer relevant.
   // Dismiss it in sessionStorage so it won't reappear if the user subsequently visits the edit page.
@@ -117,6 +119,27 @@ function PlayShellInner({
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
+
+  // Ctrl+P / Cmd+P → print via the dedicated print-view iframe
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!((e.ctrlKey || e.metaKey) && e.key === "p")) return;
+      const frame = printFrameRef.current;
+      if (!frame || printingRef.current) return;
+      e.preventDefault();
+      printingRef.current = true;
+      const params = new URLSearchParams();
+      if (currentReadSceneId) params.set("scene", currentReadSceneId);
+      frame.onload = () => {
+        frame.contentWindow?.print();
+        printingRef.current = false;
+        frame.onload = null;
+      };
+      frame.src = `/api/plays/${userPlayId}/print-view?${params}`;
+    }
+    window.addEventListener("keydown", onKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
+  }, [userPlayId, currentReadSceneId]);
 
   // Refresh server data when analysis completes
   useEffect(() => {
@@ -501,6 +524,14 @@ function PlayShellInner({
           onClose={() => setPdfOpen(false)}
         />
       )}
+
+      {/* Hidden iframe for Ctrl+P print-view — loaded on demand */}
+      <iframe
+        ref={printFrameRef}
+        title="print-view"
+        style={{ position: "fixed", left: -9999, top: -9999, width: 1, height: 1, border: "none", opacity: 0 }}
+        aria-hidden="true"
+      />
     </div>
   );
 }

@@ -127,6 +127,7 @@ body{font-family:var(--serif);color:var(--ink);-webkit-font-smoothing:antialiase
 .cover-title .hl{background:linear-gradient(transparent 20%,var(--highlight-soft) 20%,var(--highlight-soft) 90%,transparent 90%);padding:0 4px;margin:0 -4px;box-shadow:inset 0 -0.3em 0 color-mix(in oklch,var(--highlight) 50%,transparent);}
 .cover-title em{font-style:italic;font-weight:500;}
 .cover-author{font-family:var(--serif);font-size:23px;font-style:italic;color:var(--ink-muted);margin:24px 0 0;}
+.cover-scene-focus{font-family:var(--serif);font-size:15px;font-style:italic;color:var(--ink-muted);margin:18px 0 0;}
 .cover-author b{font-style:normal;font-weight:500;color:var(--ink);}
 .cover-rule{height:1px;background:var(--rule);margin:38px 0 22px;}
 .cover-meta{display:flex;gap:34px;flex-wrap:wrap;}
@@ -374,8 +375,9 @@ export function generatePlayPrintHtml(data: PrintPlayData): string {
   const charColorMap = buildCharColorMap(scenes);
   const bodyText = summary || description;
 
+  // When printing a single scene, scope characters and line count to that scene only.
   const charsWithLines = new Set(
-    scenes.flatMap(s => s.content
+    renderScenes.flatMap(s => s.content
       .filter(e => e.type === "line" && e.ch)
       .map(e => e.ch!.toLowerCase())
     )
@@ -389,7 +391,7 @@ export function generatePlayPrintHtml(data: PrintPlayData): string {
     : `${renderScenes.length} scènes`;
 
   const kicker = buildKicker(playType, scriptType);
-  const totalLines = scenes.reduce((n, s) => n + s.content.filter(e => e.type === "line").length, 0);
+  const totalLines = renderScenes.reduce((n, s) => n + s.content.filter(e => e.type === "line").length, 0);
 
   const SITE = `<a href="https://souffleur.co" target="_blank" rel="noopener">souffleur.co</a>`;
 
@@ -415,12 +417,12 @@ export function generatePlayPrintHtml(data: PrintPlayData): string {
     + `border-top:1px solid #e5dfd0;vertical-align:top;padding-top:8px;padding-right:.9in;}`
     + `}`;
 
-  // Cover (full play only)
-  const coverHtml = !sceneId ? `
+  // Cover — always shown; single-scene prints indicate the focused scene.
+  const coverHtml = `
   <section class="cover" data-screen-label="Couverture">
     <div class="cover-top">
       <span class="brand">${BRAND_SVG}<span class="wm">souffleur<span class="co">.co</span></span></span>
-      <span class="cover-edition">Édition de lecture<br>Texte intégral</span>
+      <span class="cover-edition">Édition de lecture<br>${sceneId ? "Extrait" : "Texte intégral"}</span>
     </div>
     <div class="cover-mid">
       <div class="cover-kicker">${esc(kicker)}</div>
@@ -434,24 +436,19 @@ export function generatePlayPrintHtml(data: PrintPlayData): string {
         ${speakingChars.length > 0 ? `<div class="m"><span class="m-k">Distribution</span><span class="m-v">${speakingChars.length} personnage${speakingChars.length !== 1 ? "s" : ""}</span></div>` : ""}
         ${totalLines > 0 ? `<div class="m"><span class="m-k">Répliques</span><span class="m-v">${totalLines}</span></div>` : ""}
       </div>
+      ${sceneId ? `<p class="cover-scene-focus">Extrait de la pièce, ${esc(sceneLabel)}</p>` : ""}
     </div>
     <div class="cover-foot">
       <span>Généré par <a href="https://souffleur.co" target="_blank" rel="noopener">SOUFFLEUR.co</a>, le prompteur numérique</span>
       <a href="https://souffleur.co" target="_blank" rel="noopener">souffleur.co</a>
     </div>
-  </section>` : "";
+  </section>`;
 
   // Front matter
   const anyHasDescription = speakingChars.some(([, p]) => !!p.description);
 
   let frontMatterHtml: string;
-  if (sceneId) {
-    frontMatterHtml = `
-      <section class="fm" style="padding-top:42px">
-        <div class="eyebrow">${esc(title)}</div>
-        ${author ? `<p class="resume" style="font-size:16px;color:var(--ink-muted);margin-bottom:32px">de ${esc(author)}</p>` : ""}
-      </section>`;
-  } else if (!bodyText && speakingChars.length === 0) {
+  if (sceneId || (!bodyText && speakingChars.length === 0)) {
     frontMatterHtml = "";
   } else {
     const castHtml = (() => {
