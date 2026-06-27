@@ -13,13 +13,16 @@ import { SceneNavProvider, useSceneNav } from "@/contexts/SceneNavContext";
 import { CoachProvider } from "@/contexts/CoachContext";
 import { createClient } from "@/lib/supabase/client";
 
-function langDisplayName(code: string): string {
-  try {
-    return new Intl.DisplayNames([code], { type: "language" }).of(code) ?? code;
-  } catch {
-    return code;
-  }
-}
+const CONFETTI_DOTS = [
+  { color: "#ef4444", tx: "0px",   ty: "-30px"  },
+  { color: "#f97316", tx: "21px",  ty: "-21px"  },
+  { color: "#eab308", tx: "30px",  ty: "0px"    },
+  { color: "#22c55e", tx: "21px",  ty: "21px"   },
+  { color: "#06b6d4", tx: "0px",   ty: "30px"   },
+  { color: "#6366f1", tx: "-21px", ty: "21px"   },
+  { color: "#a855f7", tx: "-30px", ty: "0px"    },
+  { color: "#ec4899", tx: "-21px", ty: "-21px"  },
+];
 
 interface PlayRef {
   id: string;
@@ -29,6 +32,7 @@ interface PlayRef {
 interface PlayShellProps {
   children: React.ReactNode;
   playTitle: string;
+  playAuthor?: string | null;
   userPlayId: string;
   activeTab: "read" | "practice";
   canEdit?: boolean;
@@ -38,9 +42,11 @@ interface PlayShellProps {
   charStats?: Record<string, { lines: number; words: number; scenes: { id: string; label: string; lines: number; words: number }[] }>;
   adjacency?: Record<string, Record<string, number>>;
   analysisState?: "ready" | "processing" | "attention";
+  scriptType?: string | null;
   playType?: string | null;
   detectedLanguage?: string | null;
   initialAnalysis?: PlayAnalysis | null;
+  initialDetailsOpen?: boolean;
 }
 
 export default function PlayShell(props: PlayShellProps) {
@@ -56,6 +62,7 @@ export default function PlayShell(props: PlayShellProps) {
 function PlayShellInner({
   children,
   playTitle,
+  playAuthor,
   userPlayId,
   activeTab,
   canEdit = false,
@@ -65,21 +72,27 @@ function PlayShellInner({
   charStats = {},
   adjacency = {},
   analysisState,
+  scriptType,
   playType,
   detectedLanguage,
   initialAnalysis,
+  initialDetailsOpen = false,
 }: PlayShellProps) {
   const { roles } = usePlayRoles();
   const { currentReadSceneTitle } = useSceneNav();
-  const t = useTranslations("play");
+  const t     = useTranslations("play");
+  const tMeta = useTranslations("meta");
   const locale = useLocale();
   const router = useRouter();
   const prefix = locale === "fr" ? "/fr" : "";
 
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(initialDetailsOpen);
   const [chatOpen, setChatOpen] = useState(false);
+  const [showRainbow, setShowRainbow] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
   const switcherRef = useRef<HTMLDivElement>(null);
+  const prevAnalysisStateRef = useRef(analysisState);
 
   // Close switcher on outside click
   useEffect(() => {
@@ -108,6 +121,18 @@ function PlayShellInner({
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [analysisState, userPlayId, router]);
+
+  // Celebrate when analysis transitions from processing → ready
+  useEffect(() => {
+    const prev = prevAnalysisStateRef.current;
+    prevAnalysisStateRef.current = analysisState;
+    if (prev !== "processing" || analysisState !== "ready") return;
+    setShowRainbow(true);
+    setShowConfetti(true);
+    const t1 = setTimeout(() => setShowConfetti(false), 1100);
+    const t2 = setTimeout(() => setShowRainbow(false), 4000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [analysisState]);
 
   const tab = (id: "read" | "practice", icon: React.ReactNode, label: string) => {
     const active = activeTab === id;
@@ -209,17 +234,21 @@ function PlayShellInner({
               >
                 {playTitle}
               </span>
-              {(playType || detectedLanguage) && (
+              {(playAuthor || scriptType || playType || detectedLanguage) && (
                 <span style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 9.5,
+                  fontFamily: "var(--font-body)",
+                  fontSize: 11,
                   color: "var(--ink-faint)",
                   textAlign: "left",
-                  letterSpacing: 0.3,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
                 }}>
                   {[
-                    playType ? playType.charAt(0).toUpperCase() + playType.slice(1) : null,
-                    detectedLanguage ? langDisplayName(detectedLanguage) : null,
+                    playAuthor ?? null,
+                    scriptType       ? tMeta(`scriptType.${scriptType}` as any)    : null,
+                    playType         ? tMeta(`category.${playType}` as any)         : null,
+                    detectedLanguage ? tMeta(`language.${detectedLanguage}` as any) : null,
                   ].filter(Boolean).join(" · ")}
                 </span>
               )}
@@ -351,29 +380,51 @@ function PlayShellInner({
               <Chat size={14} color="currentColor" />
             </button>
           )}
-          <button
-            onClick={() => setDetailsOpen(true)}
-            title={analysisState === "processing" ? t("toolbar.analysing") : t("toolbar.details")}
-            className={analysisState === "processing" ? "souffleur-sparkle-processing" : undefined}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 32,
-              height: 32,
-              borderRadius: "var(--radius-md)",
-              border: analysisState === "processing"
-                ? "1px solid var(--accent)"
-                : roles.length > 0 ? "1px solid var(--accent)" : "1px solid var(--rule)",
-              background: analysisState === "processing"
-                ? "var(--accent-soft)"
-                : roles.length > 0 ? "color-mix(in oklch, var(--accent) 10%, var(--surface))" : "transparent",
-              cursor: "pointer",
-              color: (analysisState === "processing" || roles.length > 0) ? "var(--accent)" : "var(--ink-muted)",
-            }}
-          >
-            <Sparkle size={14} color="currentColor" />
-          </button>
+          <div style={{ position: "relative" }}>
+            {showConfetti && CONFETTI_DOTS.map((dot, i) => (
+              <span
+                key={i}
+                className="souffleur-confetti-dot"
+                style={{
+                  top: "50%",
+                  left: "50%",
+                  background: dot.color,
+                  "--tx": dot.tx,
+                  "--ty": dot.ty,
+                  animationDelay: `${i * 25}ms`,
+                } as React.CSSProperties}
+              />
+            ))}
+            <button
+              onClick={() => setDetailsOpen(true)}
+              title={analysisState === "processing" ? t("toolbar.analysing") : t("toolbar.details")}
+              className={
+                analysisState === "processing" ? "souffleur-sparkle-processing" :
+                showRainbow ? "souffleur-rainbow-glow" : undefined
+              }
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                borderRadius: "var(--radius-md)",
+                border: showRainbow ? "1px solid currentColor" :
+                  analysisState === "processing"
+                    ? "1px solid var(--accent)"
+                    : roles.length > 0 ? "1px solid var(--accent)" : "1px solid var(--rule)",
+                background: showRainbow ? "transparent" :
+                  analysisState === "processing"
+                    ? "var(--accent-soft)"
+                    : roles.length > 0 ? "color-mix(in oklch, var(--accent) 10%, var(--surface))" : "transparent",
+                cursor: "pointer",
+                color: showRainbow ? undefined :
+                  (analysisState === "processing" || roles.length > 0) ? "var(--accent)" : "var(--ink-muted)",
+              }}
+            >
+              <Sparkle size={14} color="currentColor" />
+            </button>
+          </div>
           <ThemeToggle />
         </div>
       </div>

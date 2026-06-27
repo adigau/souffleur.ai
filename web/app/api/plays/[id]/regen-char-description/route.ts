@@ -79,6 +79,7 @@ export async function POST(
     .filter(Boolean)
     .join("\n");
 
+  console.log(JSON.stringify({ action: "regen-char-description", provider: "anthropic", model: "claude-haiku-4-5-20251001", playId: id, userId: user.id, userEmail: user.email, ts: new Date().toISOString() }));
   const { text } = await generateText({
     model: anthropic("claude-haiku-4-5-20251001"),
     prompt,

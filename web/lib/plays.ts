@@ -58,6 +58,7 @@ export async function getUserPlays(): Promise<Play[]> {
 export async function getPlayScript(userPlayId: string): Promise<{
   playId: string;
   title: string;
+  author: string | null;
   language: string | null;
   scriptText: string;
   canEdit: boolean;
@@ -75,6 +76,7 @@ export async function getPlayScript(userPlayId: string): Promise<{
       plays (
         id,
         title,
+        author,
         is_sample,
         script_text,
         language,
@@ -111,6 +113,7 @@ export async function getPlayScript(userPlayId: string): Promise<{
   return {
     playId: play.id,
     title: play.title,
+    author: (play.author as string | null) ?? null,
     language: (play.language as string | null) ?? null,
     scriptText,
     canEdit,

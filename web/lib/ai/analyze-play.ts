@@ -127,7 +127,8 @@ export async function analyzePlay(
   playId: string,
   userPlayId: string,
   scriptText: string,
-  uiLocale = "en"
+  uiLocale = "en",
+  meta?: { userId?: string; userEmail?: string }
 ): Promise<void> {
   if (!process.env.ANTHROPIC_API_KEY) {
     console.warn("[analyzePlay] ANTHROPIC_API_KEY not set — skipping");
@@ -165,10 +166,12 @@ export async function analyzePlay(
 
   let raw: string;
   try {
+    console.log(JSON.stringify({ action: "analyze-play", provider: "anthropic", model: "claude-haiku-4-5-20251001", playId, userId: meta?.userId, userEmail: meta?.userEmail, ts: new Date().toISOString() }));
     const msg = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 2048,
       messages: [{ role: "user", content: buildPrompt(speechText, uiLocale) }],
+      ...(meta?.userId ? { metadata: { user_id: meta.userId } } : {}),
     });
     raw = msg.content[0].type === "text" ? msg.content[0].text : "";
   } catch (err) {

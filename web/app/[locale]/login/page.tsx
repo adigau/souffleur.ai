@@ -1,11 +1,21 @@
-import { useTranslations } from "next-intl";
+import { redirect } from "next/navigation";
+import { getTranslations, getLocale } from "next-intl/server";
+import { createClient } from "@/lib/supabase/server";
 import AuthAside from "@/components/auth/AuthAside";
 import SignInForm from "@/components/auth/SignInForm";
 import LocaleToggle from "@/components/layout/LocaleToggle";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 
-export default function LoginPage() {
-  const t = useTranslations("auth.signIn");
+export default async function LoginPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const locale = await getLocale();
+    const prefix = locale === "fr" ? "/fr" : "";
+    redirect(`${prefix}/app`);
+  }
+
+  const t = await getTranslations("auth.signIn");
 
   return (
     <div

@@ -167,8 +167,16 @@ export function parseSSF(text: string): ParseResult {
       continue;
     }
 
-    // Unclosed parenthetical outside character context
-    if (trimmed.startsWith("(") && !trimmed.endsWith(")") && pendingChar === null && lastCh === null) {
+    // (direction) dialogue text — direction IS closed but followed by dialogue on same line.
+    // Parse as scene_direction (whole line); no error.
+    if (trimmed.startsWith("(") && trimmed.includes(")") && !trimmed.endsWith(")") && pendingChar === null && lastCh === null) {
+      const type: ParatextType = beforeFirstAct ? "play_open" : "scene_direction";
+      currentContent.push({ type, text: trimmed });
+      continue;
+    }
+
+    // Truly unclosed parenthetical: starts with ( but never closes — flag as error.
+    if (trimmed.startsWith("(") && !trimmed.includes(")") && pendingChar === null && lastCh === null) {
       errors.push({
         line: lineNum,
         message: "La didascalie doit s'ouvrir et se fermer sur la même ligne",

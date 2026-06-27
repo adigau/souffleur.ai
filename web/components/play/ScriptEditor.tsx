@@ -9,7 +9,8 @@ import { closeBrackets, closeBracketsKeymap, autocompletion, Completion, Complet
 import { linter, Diagnostic, lintGutter } from "@codemirror/lint";
 import { StreamLanguage, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
-import { parseSSF } from "@/lib/script-format";
+import { parseSSF, type SsfError } from "@/lib/script-format";
+import { SSF_TOKEN_STYLES } from "@/lib/ssf-tokens";
 
 // ─── SSF Stream Language ──────────────────────────────────────────────────────
 // Maps SSF syntax to Lezer tags via tokenTable
@@ -91,13 +92,13 @@ const ssfStreamLanguage = StreamLanguage.define<{ inCharBlock: boolean }>({
 // ─── Highlight style using Souffleur CSS variables ────────────────────────────
 
 const ssfHighlightStyle = HighlightStyle.define([
-  { tag: t.comment,          color: "var(--ink-faint)",  fontStyle: "italic" },
-  { tag: t.heading1,         color: "var(--accent)",     fontWeight: "700", letterSpacing: "0.04em" },
-  { tag: t.heading2,         color: "var(--accent)",     fontWeight: "500" },
-  { tag: t.keyword,          color: "var(--inkblue)",    fontWeight: "600", fontFamily: "var(--font-mono)", fontSize: "0.85em" },
-  { tag: t.string,           color: "var(--ink)" },
-  { tag: t.meta,             color: "var(--ink-muted)",  fontStyle: "italic" },
-  { tag: t.contentSeparator, color: "var(--ink-faint)" },
+  { tag: t.comment,          ...SSF_TOKEN_STYLES.comment },
+  { tag: t.heading1,         ...SSF_TOKEN_STYLES.actHeader },
+  { tag: t.heading2,         ...SSF_TOKEN_STYLES.sceneHeader },
+  { tag: t.keyword,          ...SSF_TOKEN_STYLES.charName },
+  { tag: t.string,           ...SSF_TOKEN_STYLES.dialogue },
+  { tag: t.meta,             ...SSF_TOKEN_STYLES.direction },
+  { tag: t.contentSeparator, ...SSF_TOKEN_STYLES.divider },
 ]);
 
 // ─── Character-name autocomplete (triggers after @ on a character cue line) ──
@@ -140,27 +141,6 @@ function characterCompletionSource(context: CompletionContext): CompletionResult
   return { from, options, filter: false };
 }
 
-// ─── SSF Linter ───────────────────────────────────────────────────────────────
-
-const ssfLinter = linter((view) => {
-  const text = view.state.doc.toString();
-  const { errors } = parseSSF(text);
-
-  const diagnostics: Diagnostic[] = [];
-  const docLines = view.state.doc;
-
-  for (const err of errors) {
-    const lineObj = docLines.line(Math.min(err.line, docLines.lines));
-    diagnostics.push({
-      from: lineObj.from,
-      to: lineObj.to,
-      severity: err.severity,
-      message: err.message,
-    });
-  }
-
-  return diagnostics;
-}, { delay: 600 });
 
 // ─── Editor Theme ─────────────────────────────────────────────────────────────
 
@@ -263,9 +243,10 @@ interface ScriptEditorProps {
   onSaveReady?: (trigger: () => void) => void;
   onScrollReady?: (fn: (line: number) => void) => void;
   onCurrentHeading?: (h1: string | null, h2: string | null, headingLine: number | null) => void;
+  onErrors?: (errors: SsfError[]) => void;
 }
 
-export default function ScriptEditor({ initialText, onChange, onSave, onSaveReady, onScrollReady, onCurrentHeading }: ScriptEditorProps) {
+export default function ScriptEditor({ initialText, onChange, onSave, onSaveReady, onScrollReady, onCurrentHeading, onErrors }: ScriptEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onSaveRef = useRef(onSave);
@@ -278,6 +259,8 @@ export default function ScriptEditor({ initialText, onChange, onSave, onSaveRead
   onScrollReadyRef.current = onScrollReady;
   const onCurrentHeadingRef = useRef(onCurrentHeading);
   onCurrentHeadingRef.current = onCurrentHeading;
+  const onErrorsRef = useRef(onErrors);
+  onErrorsRef.current = onErrors;
 
   const handleSave = useCallback(() => {
     if (viewRef.current) {
@@ -383,6 +366,19 @@ export default function ScriptEditor({ initialText, onChange, onSave, onSaveRead
         recomputeHeading();
       });
     };
+
+    const ssfLinter = linter((view) => {
+      const text = view.state.doc.toString();
+      const { errors } = parseSSF(text);
+      const docLines = view.state.doc;
+      const diagnostics: Diagnostic[] = [];
+      for (const err of errors) {
+        const lineObj = docLines.line(Math.min(err.line, docLines.lines));
+        diagnostics.push({ from: lineObj.from, to: lineObj.to, severity: err.severity, message: err.message });
+      }
+      onErrorsRef.current?.(errors);
+      return diagnostics;
+    }, { delay: 600 });
 
     const extensions: Extension[] = [
       ssfStreamLanguage,

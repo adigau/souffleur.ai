@@ -9,6 +9,7 @@ import { Search, Upload, Pencil } from "@/components/ui/Icons";
 import Button from "@/components/ui/Button";
 import { createNewPlay } from "@/lib/actions/plays";
 import { useRealtimePlays } from "@/hooks/useRealtimePlays";
+import { useImportPdf } from "@/hooks/useImportPdf";
 import { LANGUAGE_VALUES } from "@/lib/script-meta";
 
 interface LibraryMobileProps {
@@ -72,6 +73,7 @@ export default function LibraryMobile({ plays: initialPlays }: LibraryMobileProp
   const tMeta = useTranslations("meta");
   const [isPending, startTransition] = useTransition();
   const plays = useRealtimePlays(initialPlays);
+  const { fileInputRef, handleFileChange, triggerFileInput, isImporting, importingLabel, importError } = useImportPdf();
 
   const [scriptTypeFilter, setScriptTypeFilter] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter]     = useState<string | null>(null);
@@ -128,6 +130,23 @@ export default function LibraryMobile({ plays: initialPlays }: LibraryMobileProp
         </div>
       </div>
 
+      {/* Import error banner */}
+      {importError && (
+        <div
+          style={{
+            margin: "0 20px 10px",
+            padding: "9px 13px",
+            borderRadius: "var(--radius-md)",
+            background: "color-mix(in oklch, var(--rose) 10%, var(--bg))",
+            border: "1px solid color-mix(in oklch, var(--rose) 30%, var(--bg))",
+            color: "var(--rose)",
+            fontSize: 13,
+          }}
+        >
+          {importError}
+        </div>
+      )}
+
       {/* Filters */}
       {hasFilters && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 20px 10px" }}>
@@ -155,8 +174,10 @@ export default function LibraryMobile({ plays: initialPlays }: LibraryMobileProp
         <Button variant="secondary" size="lg" full onClick={handleWrite} disabled={isPending}>
           <Pencil size={15} />{t("write")}
         </Button>
-        <Button size="lg" full disabled>
-          <Upload size={15} />{t("import")}
+        <input ref={fileInputRef} type="file" accept=".pdf,application/pdf" style={{ display: "none" }} onChange={handleFileChange} />
+        <Button size="lg" full disabled={isPending || isImporting} onClick={triggerFileInput}>
+          <Upload size={15} />
+          {isImporting ? importingLabel : t("import")}
         </Button>
       </div>
     </div>

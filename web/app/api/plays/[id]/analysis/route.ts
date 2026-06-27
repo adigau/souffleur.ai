@@ -23,13 +23,25 @@ export async function GET(
   const playId = await resolvePlayId(supabase, id, user.id);
   if (!playId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { data } = await supabase
-    .from("play_ai_analysis")
-    .select("description, summary, play_type, play_type_options, script_type, script_type_options, detected_language, detected_language_options, character_profiles, updated_at")
-    .eq("play_id", playId)
-    .maybeSingle();
+  const [{ data }, { data: upRow }] = await Promise.all([
+    supabase
+      .from("play_ai_analysis")
+      .select("description, summary, play_type, play_type_options, script_type, script_type_options, detected_language, detected_language_options, character_profiles, updated_at")
+      .eq("play_id", playId)
+      .maybeSingle(),
+    supabase
+      .from("user_plays")
+      .select("state, progress")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .maybeSingle(),
+  ]);
 
-  return NextResponse.json({ analysis: data ?? null });
+  return NextResponse.json({
+    analysis: data ?? null,
+    state: upRow?.state ?? null,
+    progress: upRow?.progress ?? null,
+  });
 }
 
 export async function PATCH(

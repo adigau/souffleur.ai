@@ -21,6 +21,7 @@ export default async function EditPage({ params, searchParams }: Props) {
     <EditShell
       userPlayId={id}
       playTitle={data.title}
+      initialAuthor={data.author ?? ""}
       initialText={data.scriptText}
       initialSection={section}
     />

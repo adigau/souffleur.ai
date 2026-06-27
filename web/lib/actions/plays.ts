@@ -2,9 +2,10 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { getLocale } from "next-intl/server";
-import { parseSSF, type SsfError, type ParsedScene } from "@/lib/script-format";
+import { parseSSF, serializeSSF, type SsfError, type ParsedScene } from "@/lib/script-format";
 import { analyzePlay } from "@/lib/ai/analyze-play";
 import { syncAudioLines } from "@/lib/ai/sync-audio-lines";
 
@@ -40,41 +41,48 @@ export async function createNewPlay(title = "Untitled play"): Promise<{ id: stri
   return { id: up.id };
 }
 
-// Adds a sample play to the user's library (or returns existing entry) and returns the user_play id
+// Clones a sample play into the user's own editable library copy
 export async function addSampleToLibrary(playTitle: string): Promise<{ id: string | null; error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { id: null, error: "Not authenticated" };
 
-  const { data: play, error: playFindErr } = await supabase
+  // Fetch the sample play with its metadata
+  const { data: sample, error: sampleErr } = await supabase
     .from("plays")
-    .select("id")
+    .select("id, title, author, script_text")
     .eq("title", playTitle)
     .eq("is_sample", true)
     .single();
 
-  if (!play) {
-    console.error("[addSampleToLibrary] play not found:", playFindErr);
+  if (!sample) {
+    console.error("[addSampleToLibrary] sample not found:", sampleErr);
     return { id: null, error: "Sample play not found" };
   }
 
-  // Try to find existing entry first
-  const { data: existing } = await supabase
-    .from("user_plays")
-    .select("id")
-    .eq("play_id", play.id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // Fetch the sample's scenes
+  const { data: sampleScenes } = await supabase
+    .from("scenes")
+    .select("act, scene, sort_order, title, content")
+    .eq("play_id", sample.id)
+    .order("sort_order");
 
-  if (existing) {
-    revalidatePath("/app");
-    return { id: existing.id };
+  // Create a new owned play (is_sample: false) — user gets full edit access
+  const { data: play, error: playErr } = await supabase
+    .from("plays")
+    .insert({ title: sample.title, author: sample.author, is_sample: false, script_text: sample.script_text })
+    .select("id")
+    .single();
+
+  if (playErr || !play) {
+    console.error("[addSampleToLibrary] play insert failed:", playErr);
+    return { id: null, error: playErr?.message ?? "Failed to create play" };
   }
 
-  // Insert new entry
+  // Create user_plays record in processing state
   const { data: up, error: upErr } = await supabase
     .from("user_plays")
-    .insert({ play_id: play.id, user_id: user.id, state: "ready" })
+    .insert({ play_id: play.id, user_id: user.id, state: "processing", progress: 5 })
     .select("id")
     .single();
 
@@ -83,7 +91,28 @@ export async function addSampleToLibrary(playTitle: string): Promise<{ id: strin
     return { id: null, error: upErr?.message ?? "Failed to add to library" };
   }
 
-  revalidatePath("/app");
+  // Copy scenes from sample to the new play
+  if (sampleScenes?.length) {
+    await supabase.from("scenes").insert(
+      sampleScenes.map((s) => ({ ...s, play_id: play.id }))
+    );
+  }
+
+  // Derive script text from scenes when script_text is absent (seeded plays have no raw SSF)
+  const scriptText = sample.script_text ?? (sampleScenes?.length ? serializeSSF(sampleScenes as any) : "");
+
+  // Persist the derived script_text so the editor and future re-analyses have it
+  if (!sample.script_text && scriptText) {
+    await supabase.from("plays").update({ script_text: scriptText }).eq("id", play.id);
+  }
+
+  revalidatePath("/", "layout");
+
+  // Trigger AI analysis and audio sync in the background
+  const locale = await getLocale();
+  after(() => analyzePlay(play.id, up.id, scriptText, locale, { userId: user.id, userEmail: user.email }));
+  after(() => syncAudioLines(play.id));
+
   return { id: up.id };
 }
 
@@ -130,7 +159,9 @@ export async function savePlayScript(
   userPlayId: string,
   rawText: string,
   title?: string,
-  language?: string
+  author?: string,
+  language?: string,
+  options?: { ignoreParseErrors?: boolean; locale?: string }
 ): Promise<{ ok: boolean; errors: SsfError[]; dbError?: string; scenesWritten?: number }> {
   const supabase = await createClient();
   const {
@@ -155,11 +186,12 @@ export async function savePlayScript(
 
   const { scenes, errors } = parseSSF(rawText);
   const hardErrors = errors.filter((e) => e.severity === "error");
-  if (hardErrors.length > 0) return { ok: false, errors };
+  if (hardErrors.length > 0 && !options?.ignoreParseErrors) return { ok: false, errors };
 
-  // Update title, language, and raw script text
+  // Update title, author, language, and raw script text
   const titleUpdate: Record<string, string> = { script_text: rawText };
   if (title?.trim()) titleUpdate.title = title.trim();
+  if (author !== undefined) titleUpdate.author = author.trim();
   if (language) titleUpdate.language = language;
   const { error: titleErr } = await supabase
     .from("plays")
@@ -206,16 +238,16 @@ export async function savePlayScript(
   // Revalidate for all locales
   revalidatePath("/", "layout");
 
-  const uiLocale = await getLocale();
+  const uiLocale = options?.locale ?? await getLocale();
 
   // Background: analyze play with AI + sync audio line rows (non-blocking)
-  after(() => analyzePlay(playId, userPlayId, rawText, uiLocale));
+  after(() => analyzePlay(playId, userPlayId, rawText, uiLocale, { userId: user.id, userEmail: user.email }));
   after(() => syncAudioLines(playId));
 
   return { ok: true, errors, scenesWritten: scenes.length };
 }
 
-export async function deletePlay(userPlayId: string): Promise<{ ok: boolean; error?: string }> {
+export async function deletePlay(userPlayId: string, redirectPath?: string): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not authenticated" };
@@ -246,6 +278,7 @@ export async function deletePlay(userPlayId: string): Promise<{ ok: boolean; err
   }
 
   revalidatePath("/", "layout");
+  if (redirectPath) redirect(redirectPath);
   return { ok: true };
 }
 

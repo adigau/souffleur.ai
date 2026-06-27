@@ -173,6 +173,7 @@ export async function POST(
     `When relevant, connect character psychology to specific lines the actor has to deliver.`,
   ].filter(Boolean).join("\n");
 
+  console.log(JSON.stringify({ action: "play-chat", provider: "anthropic", model: "claude-haiku-4-5-20251001", playId: id, userId: user.id, userEmail: user.email, ts: new Date().toISOString() }));
   const result = streamText({
     model: anthropic("claude-haiku-4-5-20251001"),
     system,

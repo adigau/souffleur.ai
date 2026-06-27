@@ -26,9 +26,32 @@ function isAppPath(pathname: string): boolean {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip intl + auth middleware for API routes and auth callback
-  if (pathname.startsWith("/api/") || pathname.startsWith("/auth/")) {
+  // Auth callback — always pass through untouched
+  if (pathname.startsWith("/auth/")) {
     return NextResponse.next();
+  }
+
+  // API routes — skip intl/redirect logic but still refresh the Supabase session
+  // so that access tokens are renewed before Route Handlers check auth.
+  if (pathname.startsWith("/api/")) {
+    const response = NextResponse.next();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return request.cookies.getAll(); },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              request.cookies.set(name, value);
+              response.cookies.set(name, value, options);
+            });
+          },
+        },
+      }
+    );
+    await supabase.auth.getUser(); // refreshes the session if the access token has expired
+    return response;
   }
 
   // Let next-intl handle locale routing first

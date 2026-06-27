@@ -10,12 +10,12 @@ export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ id: string; locale: string }>;
-  searchParams: Promise<{ tab?: string; scene?: string; section?: string }>;
+  searchParams: Promise<{ tab?: string; scene?: string; section?: string; details?: string }>;
 }
 
 export default async function PlayPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const { tab, scene: initialSceneId, section: initialSection } = await searchParams;
+  const { tab, scene: initialSceneId, section: initialSection, details } = await searchParams;
 
   const [data, allUserPlays, initialNotes] = await Promise.all([
     getPlayById(id),
@@ -131,6 +131,7 @@ export default async function PlayPage({ params, searchParams }: Props) {
 
   const aiAnalysis = (play as any).play_ai_analysis;
   const aiRow = Array.isArray(aiAnalysis) ? aiAnalysis[0] : aiAnalysis;
+  const scriptType: string | null = aiRow?.script_type ?? null;
   const playType: string | null = aiRow?.play_type ?? null;
   const detectedLanguage: string | null = aiRow?.detected_language ?? null;
   const initialAnalysis = aiRow ? {
@@ -146,6 +147,7 @@ export default async function PlayPage({ params, searchParams }: Props) {
   return (
     <PlayShell
       playTitle={play.title}
+      playAuthor={(play as any).author ?? null}
       userPlayId={id}
       activeTab={activeTab}
       canEdit={canEdit}
@@ -155,9 +157,11 @@ export default async function PlayPage({ params, searchParams }: Props) {
       charStats={charStats}
       adjacency={adjacency}
       analysisState={analysisState}
+      scriptType={scriptType}
       playType={playType}
       detectedLanguage={detectedLanguage}
       initialAnalysis={initialAnalysis}
+      initialDetailsOpen={details === "true"}
     >
       {activeTab === "read" ? (
         <ScriptView

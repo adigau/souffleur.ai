@@ -218,6 +218,9 @@ export default function PlayDetailsPanel({
   const { roles, setRoles } = usePlayRoles();
   const { requestSceneJump } = useSceneNav();
   const [analysis, setAnalysis] = useState<PlayAnalysis | null>(initialAnalysis);
+  const [liveState, setLiveState] = useState<string | null>(initialAnalysisState ?? null);
+  const [liveProgress, setLiveProgress] = useState<number>(0);
+  const [tooLong, setTooLong] = useState(false);
   const [cast, setCast] = useState<CastMember[]>([]);
   const [expandedChars, setExpandedChars] = useState<Set<string>>(new Set());
   const [hoveredRole, setHoveredRole] = useState<string | null>(null);
@@ -225,8 +228,10 @@ export default function PlayDetailsPanel({
   const [regenSet, setRegenSet] = useState<Set<string>>(new Set());
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tooLongTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isProcessing = initialAnalysisState === "processing" && analysis === null;
+  const isProcessing = liveState === "processing" && !analysis;
+  const hasError = liveState === "attention";
 
   useEffect(() => {
     fetch(`/api/plays/${userPlayId}/cast`)
@@ -235,13 +240,16 @@ export default function PlayDetailsPanel({
       .catch(() => {});
   }, [userPlayId]);
 
-  const fetchAnalysis = useCallback(async (): Promise<boolean> => {
+  const fetchAnalysis = useCallback(async (): Promise<"done" | "error" | "pending"> => {
     try {
       const r = await fetch(`/api/plays/${userPlayId}/analysis`);
       const d = await r.json();
-      if (d.analysis) { setAnalysis(d.analysis); return true; }
-      return false;
-    } catch { return false; }
+      if (d.state) setLiveState(d.state);
+      if (typeof d.progress === "number") setLiveProgress(d.progress);
+      if (d.analysis) { setAnalysis(d.analysis); return "done"; }
+      if (d.state === "attention") return "error";
+      return "pending";
+    } catch { return "pending"; }
   }, [userPlayId]);
 
   useEffect(() => {
@@ -251,18 +259,24 @@ export default function PlayDetailsPanel({
     function scheduleNext() {
       pollTimer.current = setTimeout(async () => {
         if (cancelled) return;
-        const found = await fetchAnalysis();
-        if (!found && !cancelled) scheduleNext();
+        const result = await fetchAnalysis();
+        if (result === "pending" && !cancelled) scheduleNext();
       }, 3000);
     }
 
-    fetchAnalysis().then((found) => {
-      if (!found && !cancelled) scheduleNext();
+    fetchAnalysis().then((result) => {
+      if (result === "pending" && !cancelled) scheduleNext();
     });
+
+    // 4-minute timeout guard — if still processing, show a warning
+    tooLongTimer.current = setTimeout(() => {
+      if (!cancelled) setTooLong(true);
+    }, 4 * 60 * 1000);
 
     return () => {
       cancelled = true;
       if (pollTimer.current) clearTimeout(pollTimer.current);
+      if (tooLongTimer.current) clearTimeout(tooLongTimer.current);
     };
   }, [fetchAnalysis, initialAnalysis]);
 
@@ -392,8 +406,12 @@ export default function PlayDetailsPanel({
               fontFamily: "var(--font-mono)", fontSize: 9.5,
               background: "var(--accent-faint)", padding: "2px 7px",
               borderRadius: "var(--radius-sm)", letterSpacing: 0.5,
+              display: "flex", alignItems: "center", gap: 5,
             }}>
               <span className="souffleur-ai-text-shimmer">{t("details.analysing")}</span>
+              {liveProgress > 0 && (
+                <span style={{ opacity: 0.7 }}>{liveProgress}%</span>
+              )}
             </span>
           )}
           <button onClick={onClose} style={{
@@ -441,16 +459,50 @@ export default function PlayDetailsPanel({
                     <ShimmerLine height={12} /><ShimmerLine height={12} /><ShimmerLine width="70%" height={12} />
                   </div>
                 </div>
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 6, padding: "10px 12px",
-                  background: "var(--accent-faint)", borderRadius: "var(--radius-md)",
-                  border: "1px solid color-mix(in oklch, var(--accent) 20%, var(--rule))",
-                }}>
-                  <Sparkle size={12} color="var(--accent)" />
-                  <span className="souffleur-ai-text-shimmer" style={{ fontFamily: "var(--font-body)", fontSize: 12 }}>
-                    {t("details.analysisWaiting")}
-                  </span>
+                {/* Progress indicator */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{
+                    height: 3, borderRadius: 2, background: "var(--line)", overflow: "hidden",
+                  }}>
+                    <div style={{
+                      height: "100%", borderRadius: 2,
+                      background: "var(--accent)",
+                      width: `${Math.max(liveProgress, 8)}%`,
+                      transition: "width 0.8s ease",
+                    }} />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <Sparkle size={11} color="var(--accent)" />
+                    <span className="souffleur-ai-text-shimmer" style={{ fontFamily: "var(--font-body)", fontSize: 12 }}>
+                      {liveProgress >= 80
+                        ? t("details.stageSaving")
+                        : liveProgress >= 30
+                          ? t("details.stageAnalysing")
+                          : t("details.stageReading")}
+                    </span>
+                    {tooLong && (
+                      <span style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ink-faint)", marginLeft: "auto" }}>
+                        {t("details.analysisTooLong")}
+                      </span>
+                    )}
+                  </div>
+                  {tooLong && (
+                    <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-faint)" }}>
+                      {t("details.analysisTooLongCta")}
+                    </div>
+                  )}
                 </div>
+              </div>
+            ) : hasError ? (
+              <div style={{
+                display: "flex", flexDirection: "column", gap: 8, padding: "12px 14px",
+                background: "color-mix(in oklch, var(--error, #ef4444) 8%, var(--surface))",
+                borderRadius: "var(--radius-md)",
+                border: "1px solid color-mix(in oklch, var(--error, #ef4444) 25%, var(--rule))",
+              }}>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink)", fontWeight: 500 }}>
+                  {t("details.analysisError")}
+                </span>
               </div>
             ) : analysis ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
