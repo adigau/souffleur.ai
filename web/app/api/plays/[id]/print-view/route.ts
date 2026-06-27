@@ -15,6 +15,7 @@ export async function GET(
   const sceneIds    = searchParams.get("scenes")?.split(",").filter(Boolean) ?? undefined;
   const noHighlight = searchParams.get("highlight")  === "false";
   const cueMode     = searchParams.get("cue")        === "true";
+  const noStage     = searchParams.get("stage")      === "false";
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -83,6 +84,7 @@ export async function GET(
     sceneId,
     sceneIds,
     cueMode: cueMode && userRoles.length > 0,
+    hideStage: noStage,
   });
 
   return new Response(html, {

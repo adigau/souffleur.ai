@@ -23,6 +23,7 @@ export default function PlayPdfPanel({ userPlayId, playTitle: _playTitle, userRo
   const [scope, setScope]         = useState<Scope>(currentReadSceneId ? "scene" : "play");
   const [highlight, setHighlight] = useState(true);
   const [cueMode, setCueMode]     = useState(false);
+  const [showStage, setShowStage] = useState(true);
   const [status, setStatus]       = useState<Status>("idle");
 
   const hasRoles = userRoles.length > 0;
@@ -40,6 +41,7 @@ export default function PlayPdfPanel({ userPlayId, playTitle: _playTitle, userRo
     if (scope === "my-scenes") params.set("scenes", mySceneIds.join(","));
     if (!highlight) params.set("highlight", "false");
     if (cueMode && hasRoles) params.set("cue", "true");
+    if (!showStage) params.set("stage", "false");
     return `/api/plays/${userPlayId}/print-view?${params}`;
   }
 
@@ -164,6 +166,17 @@ export default function PlayPdfPanel({ userPlayId, playTitle: _playTitle, userRo
               />
             </OptionGroup>
           )}
+
+          {/* ── Layout options ── */}
+          <OptionGroup label={t("pdf.layoutLabel")} style={{ marginTop: 16 }}>
+            <CheckRow
+              checked={showStage}
+              disabled={false}
+              onClick={() => setShowStage((v) => !v)}
+              label={t("pdf.showStage")}
+              desc={t("pdf.showStageDesc")}
+            />
+          </OptionGroup>
 
           {/* ── Actions ── */}
           <div style={{ marginTop: 20 }}>

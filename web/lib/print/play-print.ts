@@ -30,6 +30,7 @@ export interface PrintPlayData {
   sceneId?: string | null;
   sceneIds?: string[] | null;
   cueMode?: boolean;
+  hideStage?: boolean;
 }
 
 // ── Character dot colours for the cast list ───────────────────────────────────
@@ -146,13 +147,16 @@ body{font-family:var(--serif);color:var(--ink);-webkit-font-smoothing:antialiase
 .cast{display:flex;flex-direction:column;gap:0;}
 .cast-row{display:grid;grid-template-columns:2.3in 1fr;gap:22px;padding:20px 0;border-top:1px solid var(--rule);break-inside:avoid;}
 .cast-row:last-child{border-bottom:1px solid var(--rule);}
+.cast-row.cast-you{background:var(--highlight-soft);margin:0 -10px;padding:20px 10px;}
 .cast-compact{display:grid;grid-template-columns:repeat(auto-fill,minmax(1.9in,1fr));border-bottom:1px solid var(--rule);}
 .cast-item{display:flex;flex-direction:column;gap:5px;padding:16px 14px 16px 0;border-top:1px solid var(--rule);break-inside:avoid;}
+.cast-item.cast-you{background:var(--highlight-soft);margin:0 -10px;padding:16px 10px;}
 .cast-id{display:flex;flex-direction:column;gap:6px;}
 .cast-dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0;}
 .cast-name{font-family:var(--sans);font-weight:600;font-size:14px;letter-spacing:1.8px;text-transform:uppercase;color:var(--ink);overflow-wrap:break-word;min-width:0;}
 .cast-tag{font-family:var(--mono);font-size:10.5px;letter-spacing:0.5px;color:var(--ink-faint);}
 .cast-desc{font-family:var(--serif);font-size:15px;line-height:1.58;color:var(--ink-muted);margin:0;text-wrap:pretty;}
+.cast-you-badge{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;background:var(--highlight);color:var(--ink);padding:2px 5px;border-radius:2px;vertical-align:middle;margin-left:7px;}
 
 /* Scene / script */
 .scene-head{padding-top:54px;break-after:avoid;}
@@ -279,22 +283,20 @@ function charMeta(p: PrintCharacterProfile): string {
   return [gender, age].filter(Boolean).join(" · ");
 }
 
-function renderLineContent(entry: ContentEntry, isCue: boolean): string {
+function renderLineContent(entry: ContentEntry, isCue: boolean, hideStage: boolean): string {
   if (entry.segments && entry.segments.length > 0) {
     const hasText = entry.segments.some((seg) => !seg.action && (seg.text ?? "").trim());
-    const inner = entry.segments.map((seg) => {
-      if (seg.action) return `<em class="indir"> (${esc(seg.action)}) </em>`;
-      if (isCue && hasText) return "";
-      return esc(seg.text ?? "");
-    }).join("");
-    // In cue mode show dashes after any inline actions when there is actual speech text
     if (isCue && hasText) {
-      const actionPart = entry.segments
+      const actionPart = hideStage ? "" : entry.segments
         .filter((seg) => seg.action)
         .map((seg) => `<em class="indir"> (${esc(seg.action!)}) </em>`)
         .join("");
       return `${actionPart ? `<p class="line">${actionPart}</p>` : ""}<p class="line-cue">— — — — — — — — — — — — — — — —</p>`;
     }
+    const inner = entry.segments.map((seg) => {
+      if (seg.action) return hideStage ? "" : `<em class="indir"> (${esc(seg.action)}) </em>`;
+      return esc(seg.text ?? "");
+    }).join("");
     return `<p class="line">${inner}</p>`;
   }
   if (isCue && (entry.text ?? "").trim()) {
@@ -308,6 +310,7 @@ function renderScene(
   charColorMap: Map<string, string>,
   userRoles: string[],
   cueMode: boolean,
+  hideStage: boolean,
 ): string {
   const parts: string[] = [];
   const kicker = scene.act || null;
@@ -328,22 +331,24 @@ function renderScene(
     const type = entry.type ?? "line";
 
     if (type === "scene_direction") {
-      if (!decorShown) {
-        decorShown = true;
-        parts.push(`
+      if (!hideStage) {
+        if (!decorShown) {
+          decorShown = true;
+          parts.push(`
     <div class="decor">
       <span class="decor-label">Décor</span>
       <p class="decor-text">${esc(entry.text ?? "")}</p>
     </div>`);
-      } else {
-        parts.push(`<p class="stage">${esc(entry.text ?? "")}</p>`);
+        } else {
+          parts.push(`<p class="stage">${esc(entry.text ?? "")}</p>`);
+        }
       }
       i++;
       continue;
     }
 
     if (type === "action" || type === "direction") {
-      parts.push(`<p class="stage">(${esc(entry.text ?? "")})</p>`);
+      if (!hideStage) parts.push(`<p class="stage">(${esc(entry.text ?? "")})</p>`);
       i++;
       continue;
     }
@@ -372,7 +377,7 @@ function renderScene(
     const speechClass = youLine ? "speech speech-you" : "speech";
     const firstDirHtml = group[0].direction ? ` <span class="pdir">${esc(group[0].direction)}</span>` : "";
 
-    const bodyHtml = group.map((e) => renderLineContent(e, isCueMode)).join("\n");
+    const bodyHtml = group.map((e) => renderLineContent(e, isCueMode, hideStage)).join("\n");
 
     parts.push(`
     <div class="${speechClass}">
@@ -400,6 +405,7 @@ export function generatePlayPrintHtml(data: PrintPlayData): string {
     sceneId,
     sceneIds,
     cueMode = false,
+    hideStage = false,
   } = data;
 
   const renderScenes = sceneId
@@ -488,15 +494,21 @@ export function generatePlayPrintHtml(data: PrintPlayData): string {
   } else {
     const castHtml = (() => {
       if (speakingChars.length === 0) return "";
+      // User's characters first, then the rest in original order.
+      const orderedChars = [
+        ...speakingChars.filter(([name]) => isUserRole(name, userRoles)),
+        ...speakingChars.filter(([name]) => !isUserRole(name, userRoles)),
+      ];
       if (anyHasDescription) {
-        const rows = speakingChars.map(([name, p]) => {
+        const rows = orderedChars.map(([name, p]) => {
+          const isYou = isUserRole(name, userRoles);
           const dotColor = charColorMap.get(name.toLowerCase()) ?? "#6b655a";
           const meta = charMeta(p);
           return `
-          <div class="cast-row">
+          <div class="cast-row${isYou ? " cast-you" : ""}">
             <div class="cast-id">
               <span class="cast-dot" style="background:${dotColor}"></span>
-              <span class="cast-name">${esc(name)}</span>
+              <span class="cast-name" style="${isYou ? `color:${dotColor};` : ""}">${esc(name)}${isYou ? `<span class="cast-you-badge">Vous</span>` : ""}</span>
               ${meta ? `<span class="cast-tag">${esc(meta)}</span>` : ""}
             </div>
             ${p.description ? `<p class="cast-desc">${esc(p.description)}</p>` : ""}
@@ -504,13 +516,14 @@ export function generatePlayPrintHtml(data: PrintPlayData): string {
         }).join("\n");
         return `<div class="eyebrow">Personnages</div><div class="cast">${rows}</div>`;
       } else {
-        const items = speakingChars.map(([name, p]) => {
+        const items = orderedChars.map(([name, p]) => {
+          const isYou = isUserRole(name, userRoles);
           const dotColor = charColorMap.get(name.toLowerCase()) ?? "#6b655a";
           const meta = charMeta(p);
           return `
-          <div class="cast-item">
+          <div class="cast-item${isYou ? " cast-you" : ""}">
             <span class="cast-dot" style="background:${dotColor}"></span>
-            <span class="cast-name">${esc(name)}</span>
+            <span class="cast-name" style="${isYou ? `color:${dotColor};` : ""}">${esc(name)}${isYou ? `<span class="cast-you-badge">Vous</span>` : ""}</span>
             ${meta ? `<span class="cast-tag">${esc(meta)}</span>` : ""}
           </div>`;
         }).join("\n");
@@ -527,7 +540,7 @@ export function generatePlayPrintHtml(data: PrintPlayData): string {
   // Script sections
   const scriptHtml = renderScenes.map((scene, i) => `
       <section class="script" data-screen-label="${esc(scene.title || scene.act || `Scène ${scene.sort_order}`)}">
-        ${renderScene(scene, charColorMap, userRoles, cueMode)}
+        ${renderScene(scene, charColorMap, userRoles, cueMode, hideStage)}
         ${i < renderScenes.length - 1
           ? `<div class="break-orn" aria-hidden="true">·&ensp;·&ensp;·</div>`
           : `<div class="colophon"><span>Fin ${renderScenes.length === 1 ? "de la scène" : "de la pièce"}</span><span>Généré par <a href="https://souffleur.co" target="_blank" rel="noopener">Souffleur.co</a></span></div>`
