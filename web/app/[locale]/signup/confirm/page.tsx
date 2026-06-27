@@ -108,7 +108,7 @@ export default async function ConfirmPage({
               marginBottom: 6,
             }}
           >
-            Didn't get it?
+            Didn&apos;t get it?
           </span>
           Check your spam folder. The email comes from{" "}
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>

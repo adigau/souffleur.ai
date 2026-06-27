@@ -2,7 +2,6 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import MarketingNav from "@/components/layout/MarketingNav";
 import Footer from "@/components/layout/Footer";
-import AppIcon from "@/components/ui/AppIcon";
 import Mark from "@/components/ui/Mark";
 
 function HeroSection() {

@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
-import type { ContentEntry } from "@/lib/script-types";
+import { extractCleanSpeechText, type ContentEntry } from "@/lib/script-types";
 
 export interface CharacterProfile {
   gender: "male" | "female" | "neutral";
@@ -37,8 +37,9 @@ function extractSpeechLines(scenes: { content: ContentEntry[] }[]): string {
   const lines: string[] = [];
   for (const scene of scenes) {
     for (const entry of scene.content) {
-      if (entry.type === "line" && entry.ch && entry.text) {
-        lines.push(`${entry.ch}: ${entry.text}`);
+      if (entry.type === "line" && entry.ch) {
+        const text = extractCleanSpeechText(entry);
+        if (text) lines.push(`${entry.ch}: ${text}`);
       }
     }
   }
@@ -117,10 +118,7 @@ async function updateUserPlayProgress(
   userPlayId: string,
   update: { progress?: number; state?: string }
 ) {
-  await supabase
-    .from("user_plays")
-    .update({ ...update, ...(update.state ? {} : {}) })
-    .eq("id", userPlayId);
+  await supabase.from("user_plays").update(update).eq("id", userPlayId);
 }
 
 export async function analyzePlay(
@@ -150,7 +148,6 @@ export async function analyzePlay(
     return;
   }
 
-  // Fetch scenes — cheaper than sending raw SSF
   await updateUserPlayProgress(supabase, userPlayId, { progress: 20 });
   const { data: scenes } = await supabase
     .from("scenes")
@@ -158,7 +155,7 @@ export async function analyzePlay(
     .eq("play_id", playId)
     .order("sort_order");
 
-  const speechText = scenes ? extractSpeechLines(scenes as any) : scriptText;
+  const speechText = scenes ? extractSpeechLines(scenes as { content: ContentEntry[] }[]) : scriptText;
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 

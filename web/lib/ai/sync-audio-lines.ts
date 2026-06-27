@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { extractCleanSpeechText } from "@/lib/ai/polly";
+import { extractCleanSpeechText } from "@/lib/script-types";
 import type { ContentEntry } from "@/lib/script-types";
 
 async function contentHash(charName: string, speechText: string): Promise<string> {
@@ -21,7 +21,6 @@ export async function syncAudioLines(playId: string): Promise<void> {
 
   if (!scenes || scenes.length === 0) return;
 
-  // Build desired rows from current scene content
   const newRows: {
     play_id: string;
     scene_sort_order: number;

@@ -64,6 +64,7 @@ function EditableText({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs draft when controlled value changes
   useEffect(() => { setDraft(value); }, [value]);
 
   function commit() {
@@ -207,6 +208,7 @@ export default function PlayInfoPanel({
       }, 3000);
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch; setState is in the .then() callback
     fetchAnalysis().then((found) => {
       if (!found && !cancelled) scheduleNext();
     });
@@ -432,18 +434,22 @@ export default function PlayInfoPanel({
                   <div style={fieldLabel}>Format<AiBadge /></div>
                   <select value={analysis.script_type ?? ""} onChange={(e) => save({ script_type: e.target.value })} style={selectStyle}>
                     <option value="">—</option>
-                    {SCRIPT_TYPE_VALUES.map(({ value }) => (
+                    {/* eslint-disable @typescript-eslint/no-explicit-any -- dynamic key from DB value */}
+                  {SCRIPT_TYPE_VALUES.map(({ value }) => (
                       <option key={value} value={value}>{tMeta(`scriptType.${value}` as any)}</option>
                     ))}
+                  {/* eslint-enable @typescript-eslint/no-explicit-any */}
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={fieldLabel}>Language<AiBadge /></div>
                   <select value={analysis.detected_language ?? ""} onChange={(e) => save({ detected_language: e.target.value } as Partial<PlayAnalysis>)} style={selectStyle}>
                     <option value="">—</option>
-                    {LANGUAGE_VALUES.map(({ value }) => (
+                    {/* eslint-disable @typescript-eslint/no-explicit-any -- dynamic key from DB value */}
+                  {LANGUAGE_VALUES.map(({ value }) => (
                       <option key={value} value={value}>{tMeta(`language.${value}` as any)}</option>
                     ))}
+                  {/* eslint-enable @typescript-eslint/no-explicit-any */}
                   </select>
                 </div>
               </div>
@@ -453,9 +459,11 @@ export default function PlayInfoPanel({
                 <div style={fieldLabel}>Category<AiBadge /></div>
                 <select value={analysis.play_type ?? ""} onChange={(e) => save({ play_type: e.target.value })} style={selectStyle}>
                   <option value="">—</option>
+                  {/* eslint-disable @typescript-eslint/no-explicit-any -- dynamic key from DB value */}
                   {CATEGORY_VALUES.map(({ value }) => (
                     <option key={value} value={value}>{tMeta(`category.${value}` as any)}</option>
                   ))}
+                  {/* eslint-enable @typescript-eslint/no-explicit-any */}
                 </select>
               </div>
 

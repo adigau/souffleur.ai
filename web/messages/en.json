@@ -164,7 +164,8 @@
       "details": "Play details",
       "analysing": "AI analysis in progress…",
       "switchPlay": "Switch play",
-      "currentBadge": "current"
+      "currentBadge": "current",
+      "exportPdf": "Export as PDF"
     },
     "details": {
       "title": "Play details",
@@ -289,6 +290,25 @@
       "coachPlaceholder": "Ask about this scene…",
       "coachMotivation": "Ask about motivation, subtext, or how to play a line.",
       "coachError": "Sorry, something went wrong."
+    },
+    "pdf": {
+      "title": "Print / Export",
+      "scopeLabel": "Scope",
+      "scopePlay": "Full play",
+      "scopePlayDesc": "Cover page + all scenes",
+      "scopeScene": "This scene only",
+      "scopeSceneDesc": "Current scene as a standalone document",
+      "scopeSceneNone": "Navigate to a scene to enable this option",
+      "rolesLabel": "Your character ({roles})",
+      "highlight": "Highlight my lines",
+      "highlightDesc": "Your lines appear with a coloured background",
+      "cueMode": "Cue mode — hide my lines",
+      "cueModeDesc": "Your lines are replaced with blanks, ideal for memorising",
+      "generate": "Open print view",
+      "done": "Print view opened",
+      "doneDesc": "Use ⌘P (Mac) or Ctrl+P (Windows) to print or save as PDF.",
+      "downloadAgain": "Open again",
+      "close": "Close"
     }
   },
   "meta": {

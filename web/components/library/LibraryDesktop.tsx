@@ -102,17 +102,13 @@ export default function LibraryDesktop({ plays: initialPlays }: LibraryDesktopPr
   const langsPresent       = [...new Set(plays.map((p) => p.detected_language).filter(Boolean))] as string[];
 
   // Build filter option lists from our hardcoded meta (preserving canonical order)
-  const scriptTypeOpts = Object.keys(SCRIPT_TYPE_META)
-    .filter((v) => scriptTypesPresent.includes(v))
-    .map((v) => ({ value: v, label: tMeta(`scriptType.${v}` as any) }));
-
-  const categoryOpts = Object.keys(CATEGORY_META)
-    .filter((v) => categoriesPresent.includes(v))
-    .map((v) => ({ value: v, label: tMeta(`category.${v}` as any) }));
-
-  const langOpts = LANGUAGE_VALUES
-    .filter((l) => langsPresent.includes(l.value))
-    .map((l) => ({ value: l.value, label: tMeta(`language.${l.value}` as any) }));
+  // Dynamic translation keys built from DB values — no static type for these
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scriptTypeOpts = Object.keys(SCRIPT_TYPE_META).filter((v) => scriptTypesPresent.includes(v)).map((v) => ({ value: v, label: tMeta(`scriptType.${v}` as any) }));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const categoryOpts = Object.keys(CATEGORY_META).filter((v) => categoriesPresent.includes(v)).map((v) => ({ value: v, label: tMeta(`category.${v}` as any) }));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const langOpts = LANGUAGE_VALUES.filter((l) => langsPresent.includes(l.value)).map((l) => ({ value: l.value, label: tMeta(`language.${l.value}` as any) }));
 
   const hasFilters = scriptTypeOpts.length >= 1 || categoryOpts.length >= 1 || langOpts.length >= 1;
 

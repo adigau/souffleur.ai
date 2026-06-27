@@ -150,6 +150,14 @@ export const X = ({ size = 16, color = "currentColor" }: IconProps) => (
   </svg>
 );
 
+export const FileText = ({ size = 16, color = "currentColor" }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+    <path d="M9 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V6L9 2z" stroke={color} strokeWidth="1.4" strokeLinejoin="round" />
+    <path d="M9 2v4h4" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M5.5 8.5h5M5.5 10.5h5M5.5 6.5h2" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+  </svg>
+);
+
 export const Google = ({ size = 18 }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 18 18" style={{ display: "block" }}>
     <path d="M16.51 8.18c0-.57-.05-1.11-.14-1.64H9v3.09h4.22c-.18.98-.73 1.81-1.56 2.37v1.97h2.52c1.47-1.36 2.33-3.36 2.33-5.79z" fill="#4285F4" />

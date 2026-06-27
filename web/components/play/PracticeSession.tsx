@@ -14,7 +14,7 @@ interface Scene {
   act: string;
   scene: string;
   sort_order: number;
-  title?: string;
+  title?: string | null;
   content: ContentEntry[];
 }
 
@@ -515,6 +515,7 @@ export default function PracticeSession({
 
     prefetch();
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userPlayId, manifestVersion]);
 
   // ── Scene-level download ──────────────────────────────────────────────────
@@ -540,7 +541,7 @@ export default function PracticeSession({
       await fetch(`/api/plays/${userPlayId}/sync-audio`, { method: "POST" });
     } catch { /* non-fatal */ }
 
-    const { getCachedAudio: _g, setCachedAudio } = await import("@/lib/audio-cache");
+    const { setCachedAudio } = await import("@/lib/audio-cache");
 
     let remaining = 1;
     let succeeded = 0;
@@ -574,7 +575,7 @@ export default function PracticeSession({
 
         // Download succeeded blobs immediately so badges update per-line
         for (const sl of (data.succeededLines ?? []) as Array<{
-          content_hash: string; word_timestamps: any[]; duration_ms: number; signed_url: string | null;
+          content_hash: string; word_timestamps: { word: string; time: number }[]; duration_ms: number; signed_url: string | null;
           scene_sort_order: number; line_index: number; tts_voice_id: string; character_name: string; gender: string;
         }>) {
           // Update manifestMap so isLineCached can find hash by sort:idx even before manifest refresh
@@ -642,6 +643,7 @@ export default function PracticeSession({
     const ai = sceneCachedCount;
     const browser = sceneLineCount - ai;
     if (browser > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: updates banner derived from cached audio count
       setBanner({ ai, browser });
       if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
       bannerTimerRef.current = setTimeout(() => setBanner(null), 6000);
@@ -649,6 +651,7 @@ export default function PracticeSession({
       setBanner(null);
     }
     return () => { if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sceneIdx, sceneCachedCount]);
 
   // ── Web Audio context + waveform ──────────────────────────────────────────
@@ -839,6 +842,7 @@ export default function PracticeSession({
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     audioRef.current?.pause();
     stopWaveform();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: resets playback state on scene change
     setIsAiActive(false);
     setWord(null);
     setActive(-1);
@@ -861,6 +865,7 @@ export default function PracticeSession({
     }
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started, done]);
 
   function skip() {
@@ -1124,11 +1129,13 @@ export default function PracticeSession({
           {sceneStrip}
         </div>
 
-        {/* Scene audio controls */}
+        {/* Scene audio controls — inner components close over scene state to avoid prop drilling */}
+        {/* eslint-disable react-hooks/static-components -- DownloadErrorPill and SceneAudioButton are closures over scene state */}
         <div style={{ padding: "0 6px", flexShrink: 0, display: "flex", alignItems: "center", gap: 6 }}>
           <DownloadErrorPill />
           <SceneAudioButton />
         </div>
+        {/* eslint-enable react-hooks/static-components */}
 
         <button onClick={() => setSceneIdx((i) => i + 1)} disabled={!hasNext} style={{
           width: 36, height: "100%", flexShrink: 0, display: "flex",
@@ -1157,7 +1164,7 @@ export default function PracticeSession({
           </svg>
           <span style={{ color: "var(--ink)", flex: 1 }}>
             {banner.ai > 0
-              ? <><span style={{ color: "var(--accent)", fontWeight: 600 }}>AI voices: {banner.ai} lines</span>{" · "}<span style={{ color: "var(--ink-muted)" }}>{banner.browser} will use your browser's voice</span></>
+              ? <><span style={{ color: "var(--accent)", fontWeight: 600 }}>AI voices: {banner.ai} lines</span>{" · "}<span style={{ color: "var(--ink-muted)" }}>{banner.browser} will use your browser&apos;s voice</span></>
               : <span style={{ color: "var(--ink-muted)" }}>No AI voices cached for this scene — browser voice will be used</span>
             }
           </span>
@@ -1401,6 +1408,7 @@ function CelebrationOverlay({ onDone }: { onDone: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // Stable ref so the effect runs once regardless of parent re-renders
   const onDoneRef = useRef(onDone);
+  // eslint-disable-next-line react-hooks/refs -- stable-ref: only read inside the confetti effect on mount
   onDoneRef.current = onDone;
 
   useEffect(() => {
@@ -1465,7 +1473,6 @@ function CelebrationOverlay({ onDone }: { onDone: () => void }) {
 
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

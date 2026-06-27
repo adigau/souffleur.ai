@@ -592,12 +592,21 @@ export default function EditShell({ userPlayId, playTitle, initialAuthor, initia
   const DONE_KEY = `souffleur-import-done-${userPlayId}`;
   const [importDismissed, setImportDismissed] = useState(false);
   const [localDone, setLocalDone] = useState(false);
+  const [doneStats, setDoneStats] = useState<{ elapsedSec: number; pageCount: number | null; importMode: string | null } | null>(null);
+  // If isDone was already true when this component mounted, the import finished while the
+  // user was on a different page — don't show the overlay on this mount.
+  const importWasDoneAtMount = useRef(importCtx.playId === userPlayId && importCtx.isDone);
   // Read sessionStorage after mount (SSR-safe)
   useEffect(() => {
     try {
       const val = sessionStorage.getItem(DONE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR-safe: reads sessionStorage only after mount
       if (val === "dismissed") setImportDismissed(true);
-      else if (val === "done") setLocalDone(true);
+      else if (val === "done") {
+        setLocalDone(true);
+        const statsJson = sessionStorage.getItem(DONE_KEY + "-stats");
+        if (statsJson) setDoneStats(JSON.parse(statsJson));
+      }
     } catch { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -607,13 +616,13 @@ export default function EditShell({ userPlayId, playTitle, initialAuthor, initia
   const autoScrollRef = useRef(true);
   // Tracks latest import data so the cleanup effect can read current values at unmount
   const importSaveRef = useRef({ importCtx, title, author });
-
-  const [doneStats, setDoneStats] = useState<{ elapsedSec: number; pageCount: number | null; importMode: string | null } | null>(null);
   const VISION_WARN_KEY = `souffleur-vision-warn-${userPlayId}`;
   const [visionWarnDismissed, setVisionWarnDismissed] = useState(false);
   useEffect(() => {
-    try { if (sessionStorage.getItem(VISION_WARN_KEY) === "dismissed") setVisionWarnDismissed(true); }
-    catch { /* ignore */ }
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR-safe: reads sessionStorage only after mount
+      if (sessionStorage.getItem(VISION_WARN_KEY) === "dismissed") setVisionWarnDismissed(true);
+    } catch { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -632,6 +641,7 @@ export default function EditShell({ userPlayId, playTitle, initialAuthor, initia
   });
 
   // Keep ref in sync so the cleanup below can read latest values at unmount
+  // eslint-disable-next-line react-hooks/refs -- stable-ref pattern: ref is only read inside the cleanup effect
   importSaveRef.current = { importCtx, title, author };
 
   // If user navigates away mid-stream, save whatever has been received so far
@@ -648,6 +658,7 @@ export default function EditShell({ userPlayId, playTitle, initialAuthor, initia
   // Auto-populate title and author from meta events
   useEffect(() => {
     if (importCtx.playId === userPlayId && importCtx.importTitle) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs title from PDF import context
       setTitle(importCtx.importTitle);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -655,21 +666,28 @@ export default function EditShell({ userPlayId, playTitle, initialAuthor, initia
 
   useEffect(() => {
     if (importCtx.playId === userPlayId && importCtx.importAuthor) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs author from PDF import context
       setAuthor(importCtx.importAuthor);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [importCtx.importAuthor]);
 
-  // Persist done state to sessionStorage so it survives context remounts
+  // Persist done state to sessionStorage so it survives context remounts.
+  // Guard with importWasDoneAtMount: if isDone was already true when this component mounted,
+  // the import finished while the user was on a different page — skip the overlay.
   useEffect(() => {
-    if (importCtx.playId === userPlayId && importCtx.isDone) {
-      try { sessionStorage.setItem(DONE_KEY, "done"); } catch { /* ignore */ }
-      setLocalDone(true);
-      setDoneStats({
+    if (importCtx.playId === userPlayId && importCtx.isDone && !importWasDoneAtMount.current) {
+      const stats = {
         elapsedSec: importCtx.startedAt ? Math.floor((Date.now() - importCtx.startedAt) / 1000) : 0,
         pageCount: importCtx.pageCount,
         importMode: importCtx.importMode,
-      });
+      };
+      try {
+        sessionStorage.setItem(DONE_KEY, "done");
+        sessionStorage.setItem(DONE_KEY + "-stats", JSON.stringify(stats));
+      } catch { /* ignore */ }
+      setLocalDone(true);
+      setDoneStats(stats);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [importCtx.isDone, importCtx.playId]);
@@ -690,7 +708,10 @@ export default function EditShell({ userPlayId, playTitle, initialAuthor, initia
   }
 
   function markDoneDismissed() {
-    try { sessionStorage.setItem(DONE_KEY, "dismissed"); } catch { /* ignore */ }
+    try {
+      sessionStorage.setItem(DONE_KEY, "dismissed");
+      sessionStorage.removeItem(DONE_KEY + "-stats");
+    } catch { /* ignore */ }
   }
 
   // Called by all done-overlay actions (both <a> links and the "Review" button).
@@ -729,7 +750,7 @@ export default function EditShell({ userPlayId, playTitle, initialAuthor, initia
   }
 
   const isStreaming = importCtx.playId === userPlayId && (importCtx.isImporting || importCtx.isSaving) && !importDismissed;
-  const isDoneOverlay = (importCtx.playId === userPlayId && importCtx.isDone || localDone) && !importDismissed;
+  const isDoneOverlay = localDone && !importDismissed;
   const isImportError = importCtx.playId === userPlayId && !!importCtx.importError && !importDismissed;
   const isInOcrPhase = !!importCtx.ocrProgress && importCtx.streamingText.length === 0;
   const streamLineCount = importCtx.streamingText.split("\n").filter(Boolean).length;
@@ -766,6 +787,7 @@ export default function EditShell({ userPlayId, playTitle, initialAuthor, initia
     return Math.min(pages, Math.max(1, Math.ceil((textLen / totalEstChars) * pages)));
   })();
 
+  // eslint-disable-next-line react-hooks/purity -- Date.now() is intentional: elapsed time for streaming display
   const streamElapsedSec = importCtx.startedAt ? Math.floor((Date.now() - importCtx.startedAt) / 1000) : 0;
   const streamElapsedStr = streamElapsedSec < 60
     ? `${streamElapsedSec}s`
@@ -819,6 +841,7 @@ export default function EditShell({ userPlayId, playTitle, initialAuthor, initia
 
   // Auto-close panel if all errors are resolved
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: derived UI state from errors list
     if (errors.length === 0) setErrorPanelOpen(false);
   }, [errors.length]);
 
@@ -867,7 +890,7 @@ export default function EditShell({ userPlayId, playTitle, initialAuthor, initia
         }
       });
     },
-    [userPlayId, title, author]
+    [userPlayId, title, author, t]
   );
 
   const handleChange = useCallback((t: string) => {

@@ -7,6 +7,7 @@ import { Sun, Moon } from "@/components/ui/Icons";
 export default function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: hydration guard, sets mounted once after mount
   useEffect(() => setMounted(true), []);
 
   if (!mounted) {

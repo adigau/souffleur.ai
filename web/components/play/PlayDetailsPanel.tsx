@@ -146,6 +146,7 @@ function EditableText({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs draft when controlled value changes
   useEffect(() => { setDraft(value); }, [value]);
 
   function commit() {
@@ -264,6 +265,7 @@ export default function PlayDetailsPanel({
       }, 3000);
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch; setState is in the .then() callback, not synchronous
     fetchAnalysis().then((result) => {
       if (result === "pending" && !cancelled) scheduleNext();
     });
@@ -510,6 +512,7 @@ export default function PlayDetailsPanel({
                 <div style={{ display: "flex", gap: 24 }}>
                   <div style={{ flex: 1 }}>
                     <div style={fieldLabel}>{t("details.format")}</div>
+                    {/* eslint-disable @typescript-eslint/no-explicit-any -- dynamic keys from DB values */}
                     <EditableValue
                       value={analysis.script_type ?? ""}
                       options={SCRIPT_TYPE_VALUES.map(({ value }) => ({ value, label: tMeta(`scriptType.${value}` as any) }))}
@@ -529,12 +532,14 @@ export default function PlayDetailsPanel({
                       placeholder={t("details.unknown")}
                       editTitle={t("details.edit")}
                     />
+                    {/* eslint-enable @typescript-eslint/no-explicit-any */}
                   </div>
                 </div>
 
                 {/* Category */}
                 <div>
                   <div style={fieldLabel}>{t("details.category")}</div>
+                  {/* eslint-disable @typescript-eslint/no-explicit-any -- dynamic keys from DB values */}
                   <EditableValue
                     value={analysis.play_type ?? ""}
                     options={CATEGORY_VALUES.map(({ value }) => ({ value, label: tMeta(`category.${value}` as any) }))}
@@ -543,6 +548,7 @@ export default function PlayDetailsPanel({
                     placeholder={t("details.unknown")}
                     editTitle={t("details.edit")}
                   />
+                  {/* eslint-enable @typescript-eslint/no-explicit-any */}
                 </div>
 
                 <div>
@@ -741,6 +747,7 @@ export default function PlayDetailsPanel({
                                 <div style={{ display: "flex", gap: 16, marginTop: 10 }}>
                                   <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={miniHeader}>{t("details.profileGender")}</div>
+                                    {/* eslint-disable @typescript-eslint/no-explicit-any -- dynamic keys from DB values */}
                                     <EditableValue
                                       value={profile.gender ?? ""}
                                       options={GENDER_VALUES.map((v) => ({ value: v, label: tMeta(`gender.${v}` as any) }))}
@@ -764,6 +771,7 @@ export default function PlayDetailsPanel({
                                       display={(v) => tMeta(`ageRange.${v}` as any)}
                                       editTitle={t("details.edit")}
                                     />
+                                    {/* eslint-enable @typescript-eslint/no-explicit-any */}
                                   </div>
                                 </div>
 

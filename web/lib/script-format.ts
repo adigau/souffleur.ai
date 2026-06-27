@@ -58,7 +58,7 @@ export function parseSSF(text: string): ParseResult {
   let pendingDirection: string | null = null;
   let pendingCharLine = 0;
 
-  function flushPendingChar(lineNum: number) {
+  function flushPendingChar() {
     if (pendingChar !== null) {
       errors.push({
         line: pendingCharLine,
@@ -116,7 +116,7 @@ export function parseSSF(text: string): ParseResult {
 
     // ── Act header: # Act I ───────────────────────────────────────────────
     if (/^#(?!#)/.test(trimmed)) {
-      flushPendingChar(lineNum);
+      flushPendingChar();
       lastCh = null; lastChList = null;
       if (!beforeFirstAct) pushScene();
       beforeFirstAct = false;
@@ -133,7 +133,7 @@ export function parseSSF(text: string): ParseResult {
 
     // ── Scene header: ## Scene 1 ──────────────────────────────────────────
     if (trimmed.startsWith("##")) {
-      flushPendingChar(lineNum);
+      flushPendingChar();
       lastCh = null; lastChList = null;
       if (!beforeFirstScene) pushScene();
       beforeFirstScene = false;
@@ -149,7 +149,7 @@ export function parseSSF(text: string): ParseResult {
 
     // ── Divider: --- ──────────────────────────────────────────────────────
     if (/^---+$/.test(trimmed)) {
-      flushPendingChar(lineNum);
+      flushPendingChar();
       lastCh = null; lastChList = null;
       currentContent.push({ type: "scene_close" as ParatextType });
       continue;
@@ -190,7 +190,7 @@ export function parseSSF(text: string): ParseResult {
 
     // ── Character line: @CHARACTER or @CHARACTER (direction) ──────────────
     if (trimmed.startsWith("@")) {
-      flushPendingChar(lineNum);
+      flushPendingChar();
       lastCh = null; lastChList = null;
 
       const charMatch = trimmed.match(/^@([^(]+?)(?:\s*(\(.*\)))?\s*$/);
@@ -217,8 +217,6 @@ export function parseSSF(text: string): ParseResult {
       }
       pendingDirection = charMatch[2] ?? null;
       pendingCharLine = lineNum;
-
-      // Headings (#, ##) are optional — no warning for characters before them
       continue;
     }
 
@@ -282,7 +280,7 @@ export function parseSSF(text: string): ParseResult {
       !/[.!?,;:]$/.test(trimmed) &&
       !bareNameStageVerb.test(trimmed)
     ) {
-      flushPendingChar(lineNum);
+      flushPendingChar();
       lastCh = null;
       pendingChar = trimmed;
       pendingCharLine = lineNum;
@@ -300,7 +298,7 @@ export function parseSSF(text: string): ParseResult {
     }
   }
 
-  flushPendingChar(lines.length);
+  flushPendingChar();
   pushScene();
 
   return { scenes, errors };

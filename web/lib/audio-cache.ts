@@ -1,6 +1,5 @@
-// IndexedDB-backed cache for pre-generated Polly audio blobs.
-// Key: content_hash (SHA-256 of character_name|speech_text).
-// Client-only — never imported on the server.
+// IndexedDB cache for pre-generated Polly audio blobs.
+// Key: SHA-256 of character_name|speech_text — client-only module.
 
 import type { WordTimestamp } from "@/lib/ai/polly";
 

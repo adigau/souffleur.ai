@@ -10,7 +10,9 @@ function resolveServiceKey(): string {
     try {
       const parsed = JSON.parse(secretKeys);
       if (parsed?.default) return parsed.default as string;
-    } catch {}
+    } catch (e) {
+      console.warn("[admin] SUPABASE_SECRET_KEYS is not valid JSON:", e);
+    }
   }
   // Conventional Next.js env var name (set manually in .env.local / Vercel)
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;

@@ -4,10 +4,11 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { X, Book, Mic, Chev, Pencil, Sparkle, Chat } from "@/components/ui/Icons";
+import { X, Book, Mic, Chev, Pencil, Sparkle, Chat, FileText } from "@/components/ui/Icons";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import PlayDetailsPanel, { type PlayAnalysis } from "./PlayDetailsPanel";
 import PlayChatPanel from "./PlayChatPanel";
+import PlayPdfPanel from "./PlayPdfPanel";
 import { PlayRolesProvider, usePlayRoles } from "@/contexts/PlayRolesContext";
 import { SceneNavProvider, useSceneNav } from "@/contexts/SceneNavContext";
 import { CoachProvider } from "@/contexts/CoachContext";
@@ -68,7 +69,6 @@ function PlayShellInner({
   canEdit = false,
   allPlays = [],
   characters = [],
-  currentRoles = [],
   charStats = {},
   adjacency = {},
   analysisState,
@@ -89,10 +89,23 @@ function PlayShellInner({
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(initialDetailsOpen);
   const [chatOpen, setChatOpen] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
   const [showRainbow, setShowRainbow] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const switcherRef = useRef<HTMLDivElement>(null);
   const prevAnalysisStateRef = useRef(analysisState);
+
+  // Viewing the play in read/practice mode means the import-done overlay is no longer relevant.
+  // Dismiss it in sessionStorage so it won't reappear if the user subsequently visits the edit page.
+  useEffect(() => {
+    try {
+      const key = `souffleur-import-done-${userPlayId}`;
+      if (sessionStorage.getItem(key) === "done") {
+        sessionStorage.setItem(key, "dismissed");
+        sessionStorage.removeItem(key + "-stats");
+      }
+    } catch { /* ignore */ }
+  }, [userPlayId]);
 
   // Close switcher on outside click
   useEffect(() => {
@@ -115,6 +128,7 @@ function PlayShellInner({
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "user_plays", filter: `id=eq.${userPlayId}` },
         (payload) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase realtime payload has no generated types
           if ((payload.new as any).state === "ready") router.refresh();
         }
       )
@@ -246,9 +260,11 @@ function PlayShellInner({
                 }}>
                   {[
                     playAuthor ?? null,
+                    /* eslint-disable @typescript-eslint/no-explicit-any -- dynamic keys from DB values */
                     scriptType       ? tMeta(`scriptType.${scriptType}` as any)    : null,
                     playType         ? tMeta(`category.${playType}` as any)         : null,
                     detectedLanguage ? tMeta(`language.${detectedLanguage}` as any) : null,
+                    /* eslint-enable @typescript-eslint/no-explicit-any */
                   ].filter(Boolean).join(" · ")}
                 </span>
               )}
@@ -358,7 +374,7 @@ function PlayShellInner({
           </a>
         )}
 
-        {/* Right: chat + details + theme */}
+        {/* Right: chat + pdf + details + theme */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
           {activeTab === "read" && (
             <button
@@ -380,6 +396,24 @@ function PlayShellInner({
               <Chat size={14} color="currentColor" />
             </button>
           )}
+          <button
+            onClick={() => setPdfOpen((v) => !v)}
+            title={t("toolbar.exportPdf")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 32,
+              height: 32,
+              borderRadius: "var(--radius-md)",
+              border: pdfOpen ? "1px solid var(--accent)" : "1px solid var(--rule)",
+              background: pdfOpen ? "color-mix(in oklch, var(--accent) 10%, var(--surface))" : "transparent",
+              cursor: "pointer",
+              color: pdfOpen ? "var(--accent)" : "var(--ink-muted)",
+            }}
+          >
+            <FileText size={14} color="currentColor" />
+          </button>
           <div style={{ position: "relative" }}>
             {showConfetti && CONFETTI_DOTS.map((dot, i) => (
               <span
@@ -455,6 +489,16 @@ function PlayShellInner({
           initialAnalysis={initialAnalysis ?? null}
           initialAnalysisState={analysisState}
           onClose={() => setDetailsOpen(false)}
+        />
+      )}
+
+      {/* PDF export panel */}
+      {pdfOpen && (
+        <PlayPdfPanel
+          userPlayId={userPlayId}
+          playTitle={playTitle}
+          userRoles={roles}
+          onClose={() => setPdfOpen(false)}
         />
       )}
     </div>

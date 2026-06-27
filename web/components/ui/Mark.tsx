@@ -6,17 +6,18 @@ interface MarkProps {
 }
 
 export default function Mark({ children, tone = "highlight" }: MarkProps) {
-  const bg = tone === "highlight" ? "var(--highlight-soft)" : "var(--accent-soft)";
-  const shadow =
-    tone === "highlight"
-      ? "inset 0 -0.3em 0 color-mix(in oklch, var(--highlight) 40%, transparent)"
-      : "inset 0 -0.3em 0 color-mix(in oklch, var(--accent) 40%, transparent)";
+  // Gradient leaves 20% transparent at top so the fill doesn't bleed into the line above.
+  // Both tones use the highlight (yellow) palette for visual consistency.
+  const bg = tone === "accent"
+    ? "linear-gradient(transparent 20%,color-mix(in oklch,var(--highlight) 55%,transparent) 20%,color-mix(in oklch,var(--highlight) 55%,transparent) 90%,transparent 90%)"
+    : "linear-gradient(transparent 20%,var(--highlight-soft) 20%,var(--highlight-soft) 90%,transparent 90%)";
+  const shadow = "inset 0 -0.3em 0 color-mix(in oklch, var(--highlight) 50%, transparent)";
   return (
     <span
       style={{
         background: bg,
-        padding: "0 2px",
-        borderRadius: 2,
+        padding: "0 4px",
+        margin: "0 -2px",
         boxShadow: shadow,
       }}
     >

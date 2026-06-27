@@ -99,7 +99,7 @@ export async function addSampleToLibrary(playTitle: string): Promise<{ id: strin
   }
 
   // Derive script text from scenes when script_text is absent (seeded plays have no raw SSF)
-  const scriptText = sample.script_text ?? (sampleScenes?.length ? serializeSSF(sampleScenes as any) : "");
+  const scriptText = sample.script_text ?? (sampleScenes?.length ? serializeSSF(sampleScenes as Parameters<typeof serializeSSF>[0]) : "");
 
   // Persist the derived script_text so the editor and future re-analyses have it
   if (!sample.script_text && scriptText) {
@@ -180,7 +180,7 @@ export async function savePlayScript(
   if (!upRow) return { ok: false, errors: [], dbError: "Play not found" };
 
   const playId: string = upRow.play_id;
-  const canEdit: boolean = (upRow.plays as any)?.is_sample === false;
+  const canEdit: boolean = (upRow.plays as { is_sample?: boolean | null } | null)?.is_sample === false;
 
   if (!canEdit) return { ok: false, errors: [], dbError: "This play cannot be edited" };
 
@@ -263,7 +263,7 @@ export async function deletePlay(userPlayId: string, redirectPath?: string): Pro
   if (!upRow) return { ok: false, error: "Play not found" };
 
   const playId: string = upRow.play_id;
-  const canDelete: boolean = (upRow.plays as any)?.is_sample === false;
+  const canDelete: boolean = (upRow.plays as { is_sample?: boolean | null } | null)?.is_sample === false;
   if (!canDelete) return { ok: false, error: "Sample plays cannot be deleted" };
 
   // Delete the play — cascades to scenes and user_plays

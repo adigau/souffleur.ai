@@ -68,9 +68,8 @@ export function PdfImportProvider({ children }: { children: React.ReactNode }) {
   const pendingConfirmRef = useRef<(() => Promise<void>) | null>(null);
 
   async function startImport(file: File): Promise<{ playId: string | null; error?: string }> {
-    setState((s) => ({
+    setState(() => ({
       ...INITIAL_STATE,
-      // preserve pendingImport/importMode reset
       isImporting: true,
       startedAt: Date.now(),
     }));

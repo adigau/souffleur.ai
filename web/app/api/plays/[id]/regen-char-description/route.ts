@@ -41,18 +41,23 @@ export async function POST(
 
   if (!up) return Response.json({ error: "Not found" }, { status: 404 });
 
-  const play = up.plays as any;
-  const aiRow = Array.isArray(play.play_ai_analysis)
-    ? play.play_ai_analysis[0]
-    : play.play_ai_analysis;
+  type PlayRow = {
+    title: string;
+    author: string | null;
+    play_ai_analysis: { summary?: string | null } | { summary?: string | null }[] | null;
+    scenes: { sort_order: number; content: ContentEntry[] }[] | null;
+  };
+  const play = (up.plays as unknown) as PlayRow | null;
+  if (!play) return Response.json({ error: "Not found" }, { status: 404 });
 
-  // Extract a sample of this character's spoken lines for context
-  const sortedScenes = ((play.scenes as any[]) ?? []).sort(
-    (a: any, b: any) => a.sort_order - b.sort_order
-  );
+  const aiRowRaw = play.play_ai_analysis;
+  const aiRow = Array.isArray(aiRowRaw) ? aiRowRaw[0] : aiRowRaw;
+
+  const sortedScenes = ((play.scenes ?? []) as { sort_order: number; content: ContentEntry[] }[])
+    .sort((a, b) => a.sort_order - b.sort_order);
   const charLines: string[] = [];
   for (const scene of sortedScenes) {
-    for (const entry of (scene.content as ContentEntry[]) ?? []) {
+    for (const entry of scene.content ?? []) {
       if (
         (entry.type == null || entry.type === "line") &&
         entry.ch?.toLowerCase() === characterName.toLowerCase() &&

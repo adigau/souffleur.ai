@@ -23,10 +23,11 @@ export async function GET(
     .eq("user_play_id", id)
     .order("created_at", { ascending: false });
 
+  type ChatMessage = { role: string; parts?: { type: string; text: string }[] };
   const result = (sessions ?? []).map((s) => {
-    const msgs = (s.messages as any[]) ?? [];
+    const msgs = (s.messages as ChatMessage[] | null) ?? [];
     const firstUser = msgs.find((m) => m.role === "user");
-    const preview = firstUser?.parts?.find((p: any) => p.type === "text")?.text as string | undefined;
+    const preview = firstUser?.parts?.find((p) => p.type === "text")?.text;
     return {
       id: s.id,
       title: s.title as string | null,

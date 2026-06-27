@@ -164,7 +164,8 @@
       "details": "Détails de la pièce",
       "analysing": "Analyse IA en cours…",
       "switchPlay": "Changer de pièce",
-      "currentBadge": "actuelle"
+      "currentBadge": "actuelle",
+      "exportPdf": "Export as PDF"
     },
     "details": {
       "title": "Détails de la pièce",
@@ -289,6 +290,25 @@
       "coachPlaceholder": "Pose une question sur cette scène…",
       "coachMotivation": "Pose des questions sur la motivation, le sous-texte ou comment jouer une réplique.",
       "coachError": "Désolé, une erreur est survenue."
+    },
+    "pdf": {
+      "title": "Imprimer / Exporter",
+      "scopeLabel": "Portée",
+      "scopePlay": "Pièce complète",
+      "scopePlayDesc": "Page de couverture + toutes les scènes",
+      "scopeScene": "Cette scène seulement",
+      "scopeSceneDesc": "Scène en cours en document autonome",
+      "scopeSceneNone": "Naviguez vers une scène pour activer cette option",
+      "rolesLabel": "Votre personnage ({roles})",
+      "highlight": "Surligner mes répliques",
+      "highlightDesc": "Vos répliques apparaissent sur fond coloré",
+      "cueMode": "Mode souffleur — masquer mes répliques",
+      "cueModeDesc": "Vos répliques sont remplacées par des tirets, idéal pour mémoriser",
+      "generate": "Ouvrir la vue d'impression",
+      "done": "Vue d'impression ouverte",
+      "doneDesc": "Utilisez ⌘P (Mac) ou Ctrl+P (Windows) pour imprimer ou enregistrer en PDF.",
+      "downloadAgain": "Rouvrir",
+      "close": "Fermer"
     }
   },
   "meta": {

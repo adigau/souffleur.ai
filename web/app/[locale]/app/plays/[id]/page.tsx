@@ -4,6 +4,8 @@ import { getNotesForPlay } from "@/lib/actions/plays";
 import PlayShell from "@/components/play/PlayShell";
 import ScriptView from "@/components/play/ScriptView";
 import PracticeSession from "@/components/play/PracticeSession";
+import type { ContentEntry } from "@/lib/script-types";
+import type { CharacterProfile } from "@/lib/ai/analyze-play";
 
 // Always fetch fresh — avoids router cache serving stale data after an edit
 export const dynamic = "force-dynamic";
@@ -25,9 +27,38 @@ export default async function PlayPage({ params, searchParams }: Props) {
 
   if (!data) notFound();
 
-  const play = data.plays as any;
-  const scenes = ((play.scenes as any[]) ?? []).sort(
-    (a: any, b: any) => a.sort_order - b.sort_order
+  type Scene = {
+    id: string;
+    act: string;
+    scene: string;
+    sort_order: number;
+    title: string | null;
+    content: ContentEntry[];
+  };
+  type AiAnalysisRow = {
+    description?: string | null;
+    summary?: string | null;
+    play_type?: string | null;
+    script_type?: string | null;
+    detected_language?: string | null;
+    character_profiles?: Record<string, CharacterProfile> | null;
+    updated_at?: string | null;
+  };
+  type PlayShape = {
+    id: string;
+    title: string;
+    author: string | null;
+    is_sample: boolean | null;
+    language: string | null;
+    play_ai_analysis: AiAnalysisRow | AiAnalysisRow[] | null;
+    scenes: Scene[] | null;
+  };
+
+  const play = (data.plays as unknown) as PlayShape | null;
+  if (!play) notFound();
+
+  const scenes: Scene[] = ((play.scenes ?? []) as Scene[]).sort(
+    (a, b) => a.sort_order - b.sort_order
   );
 
   // Extract characters + compute per-character line/word counts, broken down by scene
@@ -41,9 +72,9 @@ export default async function PlayPage({ params, searchParams }: Props) {
   // e.g. "Clotilde" in chars → "CLOTILDE" canonical from single-char lines.
   const canonicalNameSet = new Set<string>();
   for (const scene of scenes) {
-    for (const entry of scene.content as any[]) {
+    for (const entry of scene.content) {
       if ((!entry.type || entry.type === "line") && entry.ch && !entry.chars) {
-        canonicalNameSet.add(entry.ch as string);
+        canonicalNameSet.add(entry.ch);
       }
     }
   }
@@ -65,9 +96,9 @@ export default async function PlayPage({ params, searchParams }: Props) {
     return text ? text.trim().split(/\s+/).filter(Boolean).length : 0;
   }
 
-  function sceneLabelFor(s: any): string {
+  function sceneLabelFor(s: Scene): string {
     if (s.title) {
-      const short = (s.title as string).replace(/^Scene\s+\d+\s*:\s*/i, "");
+      const short = s.title.replace(/^Scene\s+\d+\s*:\s*/i, "");
       return short.length > 28 ? short.slice(0, 27) + "…" : short;
     }
     if (s.act) return s.act;
@@ -78,12 +109,12 @@ export default async function PlayPage({ params, searchParams }: Props) {
     const sceneWords = new Map<string, number>();
     const sceneLines = new Map<string, number>();
     let prevCh: string | null = null;
-    for (const entry of scene.content as any[]) {
+    for (const entry of scene.content) {
       if ((!entry.type || entry.type === "line") && entry.ch) {
         // Multi-char lines (entry.chars) credit each owner; single-char falls back to entry.ch.
         // Resolve case-insensitively so "Clotilde" in chars → canonical "CLOTILDE".
         const owners: string[] = Array.isArray(entry.chars) && entry.chars.length > 0
-          ? entry.chars.map((c: string) => resolveCharName(c))
+          ? (entry.chars as string[]).map((c) => resolveCharName(c))
           : [entry.ch as string];
         let words = 0;
         if (entry.text) {
@@ -123,14 +154,14 @@ export default async function PlayPage({ params, searchParams }: Props) {
   const allPlays = allUserPlays.map((p) => ({ id: p.id, title: p.title }));
   const currentRoles: string[] = (data.role as string[] | null) ?? [];
 
-  // Any non-sample play is editable by the user who has it in their library
-  const canEdit: boolean = (play as any).is_sample === false;
-  const playLanguage: string | null = (play as any).language ?? null;
+  const canEdit: boolean = play.is_sample === false;
+  const playLanguage: string | null = play.language ?? null;
+  const analysisState = (data.state ?? undefined) as "ready" | "processing" | "attention" | undefined;
 
-  const analysisState = (data as any).state as "ready" | "processing" | "attention" | undefined;
-
-  const aiAnalysis = (play as any).play_ai_analysis;
-  const aiRow = Array.isArray(aiAnalysis) ? aiAnalysis[0] : aiAnalysis;
+  const aiAnalysisRaw = play.play_ai_analysis;
+  const aiRow: AiAnalysisRow | null = Array.isArray(aiAnalysisRaw)
+    ? (aiAnalysisRaw[0] ?? null)
+    : (aiAnalysisRaw ?? null);
   const scriptType: string | null = aiRow?.script_type ?? null;
   const playType: string | null = aiRow?.play_type ?? null;
   const detectedLanguage: string | null = aiRow?.detected_language ?? null;
@@ -147,7 +178,7 @@ export default async function PlayPage({ params, searchParams }: Props) {
   return (
     <PlayShell
       playTitle={play.title}
-      playAuthor={(play as any).author ?? null}
+      playAuthor={play.author}
       userPlayId={id}
       activeTab={activeTab}
       canEdit={canEdit}

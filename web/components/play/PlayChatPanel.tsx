@@ -100,6 +100,7 @@ export default function PlayChatPanel({
 
   const transport = useMemo(
     () =>
+      // eslint-disable-next-line react-hooks/refs -- stable-ref: sceneRef.current read at request time, not during render
       new DefaultChatTransport({
         api: `/api/plays/${userPlayId}/chat`,
         body: { language, uiLocale },

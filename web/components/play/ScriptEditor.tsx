@@ -252,17 +252,25 @@ interface ScriptEditorProps {
 export default function ScriptEditor({ initialText, onChange, onSave, onSaveReady, onScrollReady, onCurrentHeading, onErrors }: ScriptEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  // Stable-ref pattern: keep latest callbacks in refs so CodeMirror extensions
+  // (registered once) always call the current version without needing to reinstall.
   const onSaveRef = useRef(onSave);
+  // eslint-disable-next-line react-hooks/refs -- stable-ref: only read inside CM extension callbacks
   onSaveRef.current = onSave;
   const onChangeRef = useRef(onChange);
+  // eslint-disable-next-line react-hooks/refs -- stable-ref: only read inside CM extension callbacks
   onChangeRef.current = onChange;
   const onSaveReadyRef = useRef(onSaveReady);
+  // eslint-disable-next-line react-hooks/refs -- stable-ref: only read inside CM extension callbacks
   onSaveReadyRef.current = onSaveReady;
   const onScrollReadyRef = useRef(onScrollReady);
+  // eslint-disable-next-line react-hooks/refs -- stable-ref: only read inside CM extension callbacks
   onScrollReadyRef.current = onScrollReady;
   const onCurrentHeadingRef = useRef(onCurrentHeading);
+  // eslint-disable-next-line react-hooks/refs -- stable-ref: only read inside CM extension callbacks
   onCurrentHeadingRef.current = onCurrentHeading;
   const onErrorsRef = useRef(onErrors);
+  // eslint-disable-next-line react-hooks/refs -- stable-ref: only read inside CM extension callbacks
   onErrorsRef.current = onErrors;
 
   const handleSave = useCallback(() => {

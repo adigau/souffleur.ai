@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useTransition, useMemo } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Mic, Chev, NotePen, Sparkle, X as XIcon, ArrowRight } from "@/components/ui/Icons";
+import { Mic, Chev, NotePen, Sparkle } from "@/components/ui/Icons";
 import { upsertLineNote } from "@/lib/actions/plays";
 import { usePlayRoles } from "@/contexts/PlayRolesContext";
 import { useSceneNav } from "@/contexts/SceneNavContext";
@@ -10,14 +10,14 @@ import { useCoach } from "@/contexts/CoachContext";
 
 // Re-export shared types from the server-safe types module (no "use client" boundary there)
 export type { ParatextType, LineSegment, ContentEntry } from "@/lib/script-types";
-import type { ParatextType, LineSegment, ContentEntry } from "@/lib/script-types";
+import type { ContentEntry } from "@/lib/script-types";
 
 interface Scene {
   id: string;
   act: string;
   scene: string;
   sort_order: number;
-  title?: string;
+  title?: string | null;
   content: ContentEntry[];
 }
 
@@ -138,24 +138,6 @@ function PlayOpen({ text }: { text: string }) {
   );
 }
 
-function ActOpen({ text }: { text: string }) {
-  return (
-    <div
-      style={{
-        fontFamily: "var(--font-display)",
-        fontStyle: "italic",
-        fontSize: 16,
-        color: "var(--ink-muted)",
-        lineHeight: 1.65,
-        borderLeft: "2px solid var(--accent)",
-        paddingLeft: 16,
-      }}
-    >
-      {text}
-    </div>
-  );
-}
-
 // Render dialogue text: splits on (parentheticals) and renders them in muted grey.
 // Works from either entry.segments (preferred) or raw entry.text (fallback).
 function renderDialogue(entry: ContentEntry): React.ReactNode {
@@ -245,123 +227,6 @@ function SceneClose({ text }: { text: string }) {
   );
 }
 
-// ─── Character stats popover (hover card) ─────────────────────────────────────
-function CharacterStatsPopover({
-  charName,
-  stats,
-  currentSceneId,
-  scenes,
-  onJumpToScene,
-}: {
-  charName: string;
-  stats: CharStats;
-  currentSceneId: string;
-  scenes: Scene[];
-  onJumpToScene: (idx: number) => void;
-}) {
-  const t = useTranslations("play");
-  const thisScene = stats.perScene.find((p) => p.sceneId === currentSceneId);
-  const top3 = [...stats.perScene].sort((a, b) => b.words - a.words).slice(0, 3);
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        zIndex: 60,
-        top: "calc(100% + 6px)",
-        left: 0,
-        width: 230,
-        background: "var(--bg-elev)",
-        border: "1px solid var(--rule)",
-        borderRadius: "var(--radius-lg)",
-        boxShadow: "0 8px 24px rgba(0,0,0,0.16)",
-        padding: 12,
-        fontFamily: "var(--font-body)",
-        cursor: "default",
-      }}
-    >
-      <div
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 10,
-          textTransform: "uppercase",
-          letterSpacing: 1,
-          color: "var(--ink-faint)",
-          marginBottom: 8,
-        }}
-      >
-        {charName}
-      </div>
-
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-        <span style={{ color: "var(--ink-muted)" }}>{t("script.thisScene")}</span>
-        <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--ink)" }}>
-          {thisScene?.lines ?? 0} lines · {thisScene?.words ?? 0}w
-        </span>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: top3.length > 0 ? 10 : 0 }}>
-        <span style={{ color: "var(--ink-muted)" }}>{t("script.total")}</span>
-        <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--ink)" }}>
-          {stats.totalLines} lines · {stats.totalWords}w
-        </span>
-      </div>
-
-      {top3.length > 0 && (
-        <>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 9.5,
-              textTransform: "uppercase",
-              letterSpacing: 1,
-              color: "var(--ink-faint)",
-              borderTop: "1px solid var(--rule)",
-              paddingTop: 8,
-              marginBottom: 5,
-            }}
-          >
-            {t("script.topScenes")}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {top3.map((t) => {
-              const idx = scenes.findIndex((s) => s.id === t.sceneId);
-              if (idx === -1) return null;
-              return (
-                <button
-                  key={t.sceneId}
-                  onClick={(e) => { e.stopPropagation(); onJumpToScene(idx); }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--line)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    width: "100%",
-                    background: "transparent",
-                    border: "none",
-                    padding: "3px 5px",
-                    borderRadius: "var(--radius-sm)",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    color: "var(--ink)",
-                  }}
-                >
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {sceneLabel(scenes[idx])}
-                  </span>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-faint)", flexShrink: 0, marginLeft: 8 }}>
-                    {t.words}w
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 // ─── Line entry ───────────────────────────────────────────────────────────────
 function ScriptLine({
   entry,
@@ -369,7 +234,6 @@ function ScriptLine({
   isContinuation,
   isSoleVoice,
   lineIdx,
-  userPlayId,
   note,
   onNoteChange,
 }: {
@@ -378,7 +242,6 @@ function ScriptLine({
   isContinuation: boolean;
   isSoleVoice: boolean;
   lineIdx: number;
-  userPlayId: string;
   note: string;
   onNoteChange: (lineIdx: number, text: string) => void;
 }) {
@@ -538,55 +401,6 @@ function sceneHasRole(scene: Scene, roles?: string[]): boolean {
   });
 }
 
-function countWords(s: string): number {
-  return s.trim().split(/\s+/).filter(Boolean).length;
-}
-
-function entryWordCount(entry: ContentEntry): number {
-  if (entry.segments) {
-    return entry.segments.reduce((sum, seg) => sum + (seg.text ? countWords(seg.text) : 0), 0);
-  }
-  return entry.text ? countWords(entry.text) : 0;
-}
-
-interface CharSceneStats {
-  sceneId: string;
-  lines: number;
-  words: number;
-}
-
-interface CharStats {
-  totalLines: number;
-  totalWords: number;
-  perScene: CharSceneStats[];
-}
-
-function computeCharacterStats(scenes: Scene[]): Map<string, CharStats> {
-  const map = new Map<string, CharStats>();
-  scenes.forEach((scene) => {
-    const sceneWords = new Map<string, number>();
-    const sceneLines = new Map<string, number>();
-    scene.content.forEach((entry) => {
-      if ((entry.type ?? "line") !== "line" || !entry.ch) return;
-      const owners = entry.chars ?? [entry.ch];
-      const wc = entryWordCount(entry);
-      owners.forEach((ch) => {
-        sceneWords.set(ch, (sceneWords.get(ch) ?? 0) + wc);
-        sceneLines.set(ch, (sceneLines.get(ch) ?? 0) + 1);
-      });
-    });
-    sceneWords.forEach((words, ch) => {
-      const lines = sceneLines.get(ch) ?? 0;
-      const existing = map.get(ch) ?? { totalLines: 0, totalWords: 0, perScene: [] };
-      existing.totalLines += lines;
-      existing.totalWords += words;
-      existing.perScene.push({ sceneId: scene.id, lines, words });
-      map.set(ch, existing);
-    });
-  });
-  return map;
-}
-
 function sceneLabel(s: Scene): string {
   if (s.title) {
     // Strip "Scene N:" prefix and truncate
@@ -608,7 +422,7 @@ export default function ScriptView({
 }: ScriptViewProps) {
   const t = useTranslations("play");
   const { roles } = usePlayRoles();
-  const { requestedSceneId, clearSceneJump, setCurrentReadSceneTitle } = useSceneNav();
+  const { requestedSceneId, clearSceneJump, setCurrentReadSceneTitle, setCurrentReadSceneId } = useSceneNav();
   const { openCoach } = useCoach();
   const locale = useLocale();
   const prefix = locale === "fr" ? "/fr" : "";
@@ -653,11 +467,12 @@ export default function ScriptView({
     if (requestedSceneId) clearSceneJump();
   }, [requestedSceneId, clearSceneJump]);
 
-  // Keep the context up to date so PlayShell can build the correct edit URL.
+  // Keep the context up to date so PlayShell can build the correct edit URL and offer scene-scoped PDF downloads.
   useEffect(() => {
     const s = scenes[sceneIdx];
     setCurrentReadSceneTitle(s?.title || s?.act || null);
-  }, [sceneIdx, scenes, setCurrentReadSceneTitle]);
+    setCurrentReadSceneId(s?.id ?? null);
+  }, [sceneIdx, scenes, setCurrentReadSceneTitle, setCurrentReadSceneId]);
 
   const currentScene = scenes[sceneIdx];
   const hasPrev = sceneIdx > 0;
@@ -676,8 +491,21 @@ export default function ScriptView({
     });
   }
 
-  let lineCounter = -1;
-  let prevLineCh: string | null = null;
+  // Precompute per-entry metadata so the render callback is pure (no mutations)
+  const contentMeta = useMemo(() => {
+    let idx = -1;
+    let prevCh: string | null = null;
+    return (currentScene?.content ?? []).map((entry) => {
+      const type = entry.type ?? "line";
+      const isLine = !type || type === "line";
+      if (!isLine) { prevCh = null; return { lineIdx: -1, isContinuation: false }; }
+      idx++;
+      const isContinuation = entry.ch === prevCh;
+      prevCh = entry.ch ?? null;
+      return { lineIdx: idx, isContinuation };
+    });
+  }, [currentScene?.content]);
+
   if (!currentScene) return null;
 
   return (
@@ -929,21 +757,18 @@ export default function ScriptView({
           <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
             {currentScene.content.map((entry, i) => {
               const type = entry.type ?? "line";
+              const { lineIdx: currentLineIdx, isContinuation } = contentMeta[i];
 
-              if (type === "play_open") { prevLineCh = null; return <PlayOpen key={i} text={entry.text ?? ""} />; }
+              if (type === "play_open") return <PlayOpen key={i} text={entry.text ?? ""} />;
               if (type === "act_open" || type === "scene_open") return null;
-              if (type === "scene_direction") { prevLineCh = null; return <SceneOpen key={i} text={entry.text ?? ""} />; }
-              if (type === "action" || type === "direction") { prevLineCh = null; return <ActionStage key={i} text={entry.text ?? ""} />; }
-              if (type === "scene_close") { prevLineCh = null; return <SceneClose key={i} text={entry.text ?? ""} />; }
+              if (type === "scene_direction") return <SceneOpen key={i} text={entry.text ?? ""} />;
+              if (type === "action" || type === "direction") return <ActionStage key={i} text={entry.text ?? ""} />;
+              if (type === "scene_close") return <SceneClose key={i} text={entry.text ?? ""} />;
 
-              lineCounter++;
-              const currentLineIdx = lineCounter;
               const owners = entry.chars ?? (entry.ch ? [entry.ch] : []);
               const isYou = roles?.length
                 ? owners.some((ch) => roles.includes(ch))
                 : (entry.you ?? false);
-              const isContinuation = entry.ch === prevLineCh;
-              prevLineCh = entry.ch ?? null;
 
               return (
                 <ScriptLine
@@ -953,7 +778,6 @@ export default function ScriptView({
                   isContinuation={isContinuation}
                   isSoleVoice={charLineCount.get(entry.ch!) === 1}
                   lineIdx={currentLineIdx}
-                  userPlayId={userPlayId}
                   note={notes[`${currentScene.id}-${currentLineIdx}`] ?? ""}
                   onNoteChange={(idx, text) => handleNoteChange(currentScene.id, idx, text)}
                 />

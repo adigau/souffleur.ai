@@ -5,23 +5,9 @@ import Progress from "@/components/ui/Progress";
 import Mark from "@/components/ui/Mark";
 import Button from "@/components/ui/Button";
 import { Warn, Sparkle } from "@/components/ui/Icons";
+import type { Play } from "@/lib/script-types";
 
-export interface Play {
-  id: string;
-  title: string;
-  author?: string;
-  role?: string[];
-  off_book_pct?: number;
-  last_practiced?: string | null;
-  state: "ready" | "processing" | "attention";
-  note?: string;
-  progress?: number;
-  is_monologue?: boolean;
-  description?: string;
-  play_type?: string;
-  script_type?: string;
-  detected_language?: string;
-}
+export type { Play };
 
 interface LibCardProps {
   play: Play;
@@ -81,6 +67,7 @@ export default function LibCard({ play, compact = false }: LibCardProps) {
   const tMeta = useTranslations("meta");
   const pad   = compact ? 16 : 20;
 
+  /* eslint-disable react-hooks/purity -- Date.now() is intentional: stable relative-date display */
   const relativeDate = (iso: string | null | undefined) => {
     if (!iso) return null;
     const diff = Date.now() - new Date(iso).getTime();
@@ -90,15 +77,12 @@ export default function LibCard({ play, compact = false }: LibCardProps) {
     return `${t("lastPracticed")} ${days} days ago`;
   };
 
-  const scriptTypeLabel = play.script_type
-    ? tMeta(`scriptType.${play.script_type}` as any)
-    : null;
-  const categoryLabel = play.play_type
-    ? tMeta(`category.${play.play_type}` as any)
-    : null;
-  const langLabel = play.detected_language
-    ? tMeta(`language.${play.detected_language}` as any)
-    : null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic translation key built from DB value
+  const scriptTypeLabel = play.script_type ? tMeta(`scriptType.${play.script_type}` as any) : null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic translation key built from DB value
+  const categoryLabel = play.play_type ? tMeta(`category.${play.play_type}` as any) : null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic translation key built from DB value
+  const langLabel = play.detected_language ? tMeta(`language.${play.detected_language}` as any) : null;
 
   const body = (() => {
     if (play.state === "processing") {
@@ -164,6 +148,7 @@ export default function LibCard({ play, compact = false }: LibCardProps) {
       </div>
     );
   })();
+  /* eslint-enable react-hooks/purity */
 
   return (
     <Link

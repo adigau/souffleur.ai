@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Play } from "@/components/library/LibCard";
+import type { Play } from "@/lib/script-types";
 import { serializeSSF } from "@/lib/script-format";
 
 export async function getUserPlays(): Promise<Play[]> {
@@ -33,20 +33,37 @@ export async function getUserPlays(): Promise<Play[]> {
 
   if (error || !data) return [];
 
-  return data.map((row: any) => {
-    const analysisRows = row.plays?.play_ai_analysis;
-    const analysis = Array.isArray(analysisRows) ? analysisRows[0] : analysisRows;
+  type AnalysisRow = {
+    description?: string | null;
+    play_type?: string | null;
+    script_type?: string | null;
+    detected_language?: string | null;
+  };
+
+  return data.map((row) => {
+    // Supabase infers nested relations with broad types — cast through unknown to our narrow shape
+    type PlaysShape = {
+      title: string;
+      author: string | null;
+      is_monologue: boolean | null;
+      play_ai_analysis: AnalysisRow | AnalysisRow[] | null;
+    };
+    const plays = (row.plays as unknown) as PlaysShape | null;
+    const analysisRows = plays?.play_ai_analysis;
+    const analysis: AnalysisRow | null = Array.isArray(analysisRows)
+      ? (analysisRows[0] ?? null)
+      : (analysisRows ?? null);
     return {
       id: row.id,
-      title: row.plays.title,
-      author: row.plays.author,
+      title: plays?.title ?? "",
+      author: plays?.author ?? undefined,
       role: (row.role as string[] | null) ?? undefined,
       off_book_pct: row.off_book_pct ?? 0,
       last_practiced: row.last_practiced,
-      state: row.state ?? "ready",
-      note: row.note,
-      progress: row.progress,
-      is_monologue: row.plays.is_monologue,
+      state: (row.state ?? "ready") as Play["state"],
+      note: row.note ?? undefined,
+      progress: row.progress ?? undefined,
+      is_monologue: plays?.is_monologue ?? undefined,
       description: analysis?.description ?? undefined,
       play_type: analysis?.play_type ?? undefined,
       script_type: analysis?.script_type ?? undefined,
@@ -96,25 +113,35 @@ export async function getPlayScript(userPlayId: string): Promise<{
 
   if (error || !data) return null;
 
-  const play = data.plays as any;
+  type PlayRow = {
+    id: string;
+    title: string;
+    author: string | null;
+    is_sample: boolean | null;
+    script_text: string | null;
+    language: string | null;
+    scenes: { sort_order: number; act: string; scene: string; title: string; content: unknown }[] | null;
+  };
+
+  const play = (data.plays as unknown) as PlayRow | null;
+  if (!play) return null;
+
   // Any non-sample play in the user's library is editable by that user
   const canEdit: boolean = play.is_sample === false;
 
   // Prefer the stored raw text (exact round-trip); fall back to serializing from
   // scenes for plays that predate the script_text column (migration 008).
   let scriptText: string = play.script_text ?? "";
-  if (!scriptText && play.scenes?.length > 0) {
-    const sorted = [...play.scenes].sort(
-      (a: any, b: any) => a.sort_order - b.sort_order
-    );
-    scriptText = serializeSSF(sorted);
+  if (!scriptText && play.scenes && play.scenes.length > 0) {
+    const sorted = [...play.scenes].sort((a, b) => a.sort_order - b.sort_order);
+    scriptText = serializeSSF(sorted as Parameters<typeof serializeSSF>[0]);
   }
 
   return {
     playId: play.id,
     title: play.title,
-    author: (play.author as string | null) ?? null,
-    language: (play.language as string | null) ?? null,
+    author: play.author,
+    language: play.language,
     scriptText,
     canEdit,
   };

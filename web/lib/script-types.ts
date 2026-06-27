@@ -26,6 +26,24 @@ export interface ContentEntry {
   intent?: string;
 }
 
+/** A user's play entry as it appears in the library. */
+export interface Play {
+  id: string;
+  title: string;
+  author?: string;
+  role?: string[];
+  off_book_pct?: number;
+  last_practiced?: string | null;
+  state: "ready" | "processing" | "attention";
+  note?: string;
+  progress?: number;
+  is_monologue?: boolean;
+  description?: string;
+  play_type?: string;
+  script_type?: string;
+  detected_language?: string;
+}
+
 /** Returns only the spoken text, stripping inline stage directions. */
 export function extractCleanSpeechText(entry: ContentEntry): string {
   if (entry.segments) {

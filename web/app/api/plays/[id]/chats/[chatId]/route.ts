@@ -30,15 +30,20 @@ export async function PATCH(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { messages, generateTitle, uiLocale } = await req.json();
+  type ChatMessage = { role: string; parts?: { type: string; text: string }[] };
+  const { messages, generateTitle, uiLocale } = await req.json() as {
+    messages: ChatMessage[];
+    generateTitle?: boolean;
+    uiLocale?: string;
+  };
 
   let title: string | undefined;
   if (generateTitle && Array.isArray(messages) && messages.length >= 2) {
     try {
-      const firstUser = messages.find((m: any) => m.role === "user");
-      const firstAI = messages.find((m: any) => m.role === "assistant");
-      const userText: string = firstUser?.parts?.find((p: any) => p.type === "text")?.text ?? "";
-      const aiText: string = firstAI?.parts?.find((p: any) => p.type === "text")?.text ?? "";
+      const firstUser = messages.find((m) => m.role === "user");
+      const firstAI = messages.find((m) => m.role === "assistant");
+      const userText: string = firstUser?.parts?.find((p) => p.type === "text")?.text ?? "";
+      const aiText: string = firstAI?.parts?.find((p) => p.type === "text")?.text ?? "";
 
       let langName: string | null = null;
       if (uiLocale) {

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { Play } from "@/components/library/LibCard";
+import type { Play } from "@/lib/script-types";
 
 export function useRealtimePlays(initialPlays: Play[]): Play[] {
   const [plays, setPlays] = useState<Play[]>(initialPlays);
@@ -11,6 +11,7 @@ export function useRealtimePlays(initialPlays: Play[]): Play[] {
 
   // Sync when SSR pushes new initial data (e.g. after router.refresh())
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs plays when server refreshes initial data
     setPlays(initialPlays);
   }, [initialPlays]);
 

@@ -1,6 +1,4 @@
 import { PollyClient, SynthesizeSpeechCommand, VoiceId } from "@aws-sdk/client-polly";
-import { extractCleanSpeechText } from "@/lib/script-types";
-export { extractCleanSpeechText };
 
 export interface WordTimestamp {
   word: string;
@@ -69,9 +67,9 @@ function makePollyClient(): PollyClient {
   });
 }
 
-async function sdkStreamToBuffer(stream: any): Promise<Buffer> {
+async function sdkStreamToBuffer(stream: NodeJS.ReadableStream | Uint8Array | { transformToByteArray(): Promise<Uint8Array> }): Promise<Buffer> {
   if (stream instanceof Uint8Array) return Buffer.from(stream);
-  if (typeof stream.transformToByteArray === "function") {
+  if ("transformToByteArray" in stream) {
     return Buffer.from(await stream.transformToByteArray());
   }
   const chunks: Uint8Array[] = [];
@@ -108,6 +106,7 @@ export async function generateLineAudio(
     ),
   ]);
 
+  if (!audioRes.AudioStream || !marksRes.AudioStream) throw new Error("Polly returned no audio stream");
   const audioBuffer = await sdkStreamToBuffer(audioRes.AudioStream);
   const marksBuffer = await sdkStreamToBuffer(marksRes.AudioStream);
 

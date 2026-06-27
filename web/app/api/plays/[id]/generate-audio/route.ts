@@ -41,18 +41,20 @@ export async function POST(
     .eq("play_id", playId)
     .maybeSingle();
 
+  type CharProfile = { gender?: string; age_range?: string; description?: string; voice_id?: string };
+
   const language: string =
-    (analysisRow as any)?.detected_language ??
-    (upRow.plays as any)?.language ??
+    (analysisRow?.detected_language as string | null | undefined) ??
+    ((upRow.plays as { language?: string | null } | null)?.language) ??
     "en";
 
-  const profiles: Record<string, any> = { ...(analysisRow?.character_profiles ?? {}) };
+  const profiles: Record<string, CharProfile> = { ...(analysisRow?.character_profiles as Record<string, CharProfile> | null ?? {}) };
 
   // Build set of voices already assigned to characters in this play
   const usedVoices = new Set<string>(
     Object.values(profiles)
-      .map((p: any) => p?.voice_id)
-      .filter(Boolean) as string[]
+      .map((p) => p?.voice_id)
+      .filter((v): v is string => Boolean(v))
   );
 
   const admin = createAdminClient();
@@ -106,7 +108,7 @@ export async function POST(
   const errors: string[] = [];
   const succeededDetails: Array<{
     content_hash: string;
-    word_timestamps: any[];
+    word_timestamps: { word: string; time: number }[];
     duration_ms: number;
     storage_path: string;
     scene_sort_order: number;
@@ -130,7 +132,7 @@ export async function POST(
       // stale values like "Rémi" stored before the voice pool was corrected)
       const cachedVoice: string | undefined = profile.voice_id;
       const validVoiceIds = new Set<string>(Object.values(VoiceId));
-      let voiceId: VoiceId = (cachedVoice && validVoiceIds.has(cachedVoice))
+      const voiceId: VoiceId = (cachedVoice && validVoiceIds.has(cachedVoice))
         ? (cachedVoice as VoiceId)
         : assignVoice(charName, profile.gender ?? "neutral", language, usedVoices);
       if (!profile.voice_id || !validVoiceIds.has(profile.voice_id)) {
@@ -177,8 +179,8 @@ export async function POST(
           character_name: charName,
           gender: profile.gender ?? "neutral",
         });
-      } catch (err: any) {
-        const msg = String(err?.message ?? err);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
         console.error(`[generate-audio] line ${line.id} failed:`, msg);
         errors.push(msg);
         await admin

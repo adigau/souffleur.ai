@@ -3,7 +3,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { createClient } from "@/lib/supabase/server";
 import type { ContentEntry } from "@/lib/script-types";
 
-function extractDialogue(scenes: { content: ContentEntry[]; act?: string; title?: string; sort_order?: number }[]): string {
+function extractDialogue(scenes: { content: ContentEntry[]; act?: string; title?: string | null; sort_order?: number }[]): string {
   const blocks: string[] = [];
   for (const scene of scenes) {
     const label = [scene.act, scene.title].filter(Boolean).join(" — ");
@@ -49,12 +49,18 @@ export async function POST(
 
   if (!up) return new Response("Not found", { status: 404 });
 
-  const play = up.plays as any;
-  const roles: string[] = (up.role as string[]) ?? [];
-  const aiRow = Array.isArray(play.play_ai_analysis) ? play.play_ai_analysis[0] : play.play_ai_analysis;
-  const charProfiles: Record<string, any> = aiRow?.character_profiles ?? {};
+  type CharProfile = { gender?: string; age_range?: string; description?: string; has_dialogue?: boolean };
+  type SceneRow = { content: ContentEntry[]; act?: string; title?: string | null; sort_order: number };
+  type AiRow = { summary?: string; description?: string; play_type?: string; character_profiles?: Record<string, CharProfile> };
+  type PlayRow = { title: string; author?: string | null; play_ai_analysis?: AiRow | AiRow[] | null; scenes?: SceneRow[] | null };
 
-  const sortedScenes = ((play.scenes as any[]) ?? []).sort((a: any, b: any) => a.sort_order - b.sort_order);
+  const play = (up.plays as unknown) as PlayRow | null;
+  if (!play) return new Response("Not found", { status: 404 });
+  const roles: string[] = (up.role as string[]) ?? [];
+  const aiRow: AiRow | undefined = Array.isArray(play?.play_ai_analysis) ? play.play_ai_analysis[0] : play?.play_ai_analysis ?? undefined;
+  const charProfiles: Record<string, CharProfile> = aiRow?.character_profiles ?? {};
+
+  const sortedScenes = [...(play?.scenes ?? [])].sort((a, b) => a.sort_order - b.sort_order);
 
   // Case-insensitive profile lookup helper
   function lookupProfile(name: string) {
@@ -93,17 +99,17 @@ export async function POST(
     .join("\n");
 
   // Current scene: extract dialogue and check if actor appears
-  let currentSceneLines: string[] = [];
+  const currentSceneLines: string[] = [];
   let actorAppearsInScene: boolean | null = null;
   if (currentSceneTitle) {
     const scene = sortedScenes.find(
-      (s: any) =>
+      (s) =>
         s.title === currentSceneTitle ||
         [s.act, s.title].filter(Boolean).join(" — ") === currentSceneTitle
     );
     if (scene) {
       let actorLineCount = 0;
-      for (const entry of (scene.content as ContentEntry[]) ?? []) {
+      for (const entry of scene.content ?? []) {
         if ((entry.type ?? "line") === "line" && entry.ch && entry.text) {
           const isActor = roles.some((r) => r.toLowerCase() === entry.ch!.toLowerCase());
           if (isActor) actorLineCount++;
