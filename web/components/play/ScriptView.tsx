@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useTransition, useMemo } from "react";
+import React, { useState, useRef, useEffect, useTransition, useMemo } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Mic, Chev, NotePen, Sparkle, X as XIcon, ArrowRight } from "@/components/ui/Icons";
 import { upsertLineNote } from "@/lib/actions/plays";
@@ -153,6 +153,41 @@ function ActOpen({ text }: { text: string }) {
     >
       {text}
     </div>
+  );
+}
+
+// Render dialogue text: splits on (parentheticals) and renders them in muted grey.
+// Works from either entry.segments (preferred) or raw entry.text (fallback).
+function renderDialogue(entry: ContentEntry): React.ReactNode {
+  const DIRECTION_STYLE: React.CSSProperties = {
+    fontStyle: "italic",
+    color: "var(--ink-faint)",
+    fontSize: "0.9em",
+  };
+
+  if (entry.segments) {
+    return entry.segments.map((seg, i) =>
+      seg.action ? (
+        <span key={i} style={DIRECTION_STYLE}>{" "}({seg.action}){" "}</span>
+      ) : (
+        <span key={i}>{seg.text}</span>
+      )
+    );
+  }
+
+  const text = entry.text ?? "";
+  if (!text.includes("(") || !text.includes(")")) return text;
+
+  const parts = text.split(/(\([^)]*\))/g).filter(Boolean);
+  const hasAction = parts.some((p) => p.startsWith("(") && p.endsWith(")"));
+  if (!hasAction) return text;
+
+  return parts.map((p, i) =>
+    p.startsWith("(") && p.endsWith(")") ? (
+      <span key={i} style={DIRECTION_STYLE}>{" "}{p}{" "}</span>
+    ) : (
+      <span key={i}>{p}</span>
+    )
   );
 }
 
@@ -415,26 +450,7 @@ function ScriptLine({
           borderRadius: "var(--radius-sm)",
         }}
       >
-        {entry.segments ? (
-          entry.segments.map((seg, si) =>
-            seg.action ? (
-              <span
-                key={si}
-                style={{
-                  fontStyle: "italic",
-                  fontSize: 15,
-                  color: "var(--ink-muted)",
-                }}
-              >
-                {" "}({seg.action}){" "}
-              </span>
-            ) : (
-              <span key={si}>{seg.text}</span>
-            )
-          )
-        ) : (
-          entry.text
-        )}
+        {renderDialogue(entry)}
       </div>
 
       {/* Intent */}
