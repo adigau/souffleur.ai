@@ -103,7 +103,8 @@
       "previewConfirm": "Start import",
       "doneMethod_text": "Embedded text",
       "doneMethod_ocr": "Scanned → OCR",
-      "doneMethod_vision": "Scanned → AI Vision"
+      "doneMethod_vision": "Scanned → AI Vision",
+      "visionWarning": "This PDF was a scanned image — the AI read it visually and transcription errors are more likely. Read through the entire script carefully before rehearsing to catch any mistakes."
     },
     "dropHint": "Drop a PDF here to start a new play",
     "offBook": "% off book",

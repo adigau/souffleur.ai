@@ -80,11 +80,14 @@ const ssfStreamLanguage = StreamLanguage.define<{ inCharBlock: boolean }>({
       return "direction";
     }
 
-    // Plain text — dialogue if inside a character block, implicit didascalie otherwise
-    stream.skipToEnd();
+    // Dialogue: consume only up to the next ( so inline directions get their own token
     if (state.inCharBlock) {
+      if (!stream.match(/[^(]+/)) stream.next();
       return "dialogue";
     }
+
+    // Outside char block: plain text → implicit didascalie
+    stream.skipToEnd();
     return "direction";
   },
 });

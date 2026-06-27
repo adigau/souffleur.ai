@@ -609,6 +609,13 @@ export default function EditShell({ userPlayId, playTitle, initialAuthor, initia
   const importSaveRef = useRef({ importCtx, title, author });
 
   const [doneStats, setDoneStats] = useState<{ elapsedSec: number; pageCount: number | null; importMode: string | null } | null>(null);
+  const VISION_WARN_KEY = `souffleur-vision-warn-${userPlayId}`;
+  const [visionWarnDismissed, setVisionWarnDismissed] = useState(false);
+  useEffect(() => {
+    try { if (sessionStorage.getItem(VISION_WARN_KEY) === "dismissed") setVisionWarnDismissed(true); }
+    catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [confettiPieces] = useState(() => {
     const colors = ["#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#6366f1","#a855f7","#ec4899","#14b8a6","#f43f5e"];
@@ -1441,46 +1448,56 @@ export default function EditShell({ userPlayId, playTitle, initialAuthor, initia
               ) : (() => {
                 const classified = classifySsfLines(importCtx.streamingText);
                 return (
-                  <>
-                    {/* Gutter — same bg/border/font as CodeMirror .cm-gutters */}
-                    <div
-                      style={{
-                        flexShrink: 0,
-                        alignSelf: "stretch",
-                        background: "var(--bg-elev)",
-                        borderRight: "1px solid var(--rule)",
-                        padding: "24px 8px 24px 4px",
-                        textAlign: "right",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: 11,
-                        lineHeight: "1.75",
-                        color: "var(--ink-faint)",
-                        userSelect: "none",
-                        minWidth: 44,
-                      }}
-                    >
-                      {classified.map((_, idx) => (
-                        <div key={idx} style={{ minHeight: "1.75em" }}>{idx + 1}</div>
-                      ))}
-                    </div>
-                    {/* Content */}
-                    <div style={{ flex: 1, padding: "24px 0", fontFamily: "var(--font-body)", fontSize: 14, lineHeight: "1.75" }}>
-                      <div style={{ maxWidth: 720 }}>
-                        {classified.map(({ line, token }, idx) => {
-                          const isLast = idx === classified.length - 1;
-                          return (
-                            <div
-                              key={idx}
-                              style={{ ...(SSF_TOKEN_STYLES[token] as React.CSSProperties), minHeight: "1.75em", padding: "0 24px" }}
+                  <div style={{ flex: 1, padding: "24px 0", fontFamily: "var(--font-body)", fontSize: 14, lineHeight: "1.75", userSelect: "none" }}>
+                    <div style={{ maxWidth: 760 }}>
+                      {classified.map(({ line, token }, idx) => {
+                        const isLast = idx === classified.length - 1;
+                        // Split inline (didascalies) within dialogue lines
+                        const children: React.ReactNode[] = [];
+                        if (token === "dialogue" && line.includes("(") && line.includes(")")) {
+                          const parts = line.split(/(\([^)]*\))/g).filter(Boolean);
+                          const hasAction = parts.some((p) => p.startsWith("(") && p.endsWith(")"));
+                          if (hasAction) {
+                            parts.forEach((p, pi) => {
+                              if (p.startsWith("(") && p.endsWith(")")) {
+                                children.push(<span key={pi} style={{ fontStyle: "italic", color: "var(--ink-faint)" }}>{p}</span>);
+                              } else {
+                                children.push(<span key={pi}>{p}</span>);
+                              }
+                            });
+                          }
+                        }
+                        return (
+                          <div
+                            key={idx}
+                            style={{ display: "flex", alignItems: "flex-start", minHeight: "1.75em" }}
+                          >
+                            {/* Line number — sits at the top of each logical line regardless of wrapping */}
+                            <span
+                              style={{
+                                flexShrink: 0,
+                                width: 44,
+                                paddingRight: 16,
+                                textAlign: "right",
+                                fontFamily: "var(--font-mono)",
+                                fontSize: 11,
+                                lineHeight: "1.75",
+                                color: "var(--ink-faint)",
+                                opacity: 0.5,
+                                userSelect: "none",
+                              }}
                             >
-                              {line}
+                              {idx + 1}
+                            </span>
+                            <span style={{ ...(SSF_TOKEN_STYLES[token] as React.CSSProperties), flex: 1 }}>
+                              {children.length > 0 ? children : line}
                               {isLast && importCtx.isImporting && <span className="souffleur-ai-cursor" />}
-                            </div>
-                          );
-                        })}
-                      </div>
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </>
+                  </div>
                 );
               })()}
             </div>
@@ -1679,6 +1696,51 @@ export default function EditShell({ userPlayId, playTitle, initialAuthor, initia
           />
         )}
       </div>
+
+      {/* ── Vision scan warning banner ── */}
+      {!isStreaming && !visionWarnDismissed && doneStats?.importMode === "vision" && (
+        <div
+          style={{
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 10,
+            padding: "10px 16px",
+            background: "color-mix(in oklch, var(--rose) 8%, var(--bg))",
+            borderTop: "1px solid color-mix(in oklch, var(--rose) 30%, var(--bg))",
+            borderBottom: "1px solid color-mix(in oklch, var(--rose) 30%, var(--bg))",
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--rose)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span style={{ flex: 1, fontSize: 12.5, color: "var(--rose)", lineHeight: 1.55 }}>
+            {tLib("importPdf.visionWarning")}
+          </span>
+          <button
+            onClick={() => {
+              setVisionWarnDismissed(true);
+              try { sessionStorage.setItem(VISION_WARN_KEY, "dismissed"); } catch { /* ignore */ }
+            }}
+            style={{
+              flexShrink: 0,
+              background: "none",
+              border: "none",
+              color: "var(--rose)",
+              cursor: "pointer",
+              padding: "0 2px",
+              opacity: 0.7,
+              fontSize: 16,
+              lineHeight: 1,
+            }}
+            title="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* ── Error panel (above status bar, visible when errorPanelOpen) ── */}
       {errorPanelOpen && errors.length > 0 && (
@@ -1898,6 +1960,30 @@ export default function EditShell({ userPlayId, playTitle, initialAuthor, initia
                 >
                   {tLib(`importPdf.doneMethod_${doneStats.importMode ?? "text"}`)}
                 </span>
+              </div>
+            )}
+
+            {/* Vision warning */}
+            {doneStats?.importMode === "vision" && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  padding: "12px 14px",
+                  borderRadius: "var(--radius-md)",
+                  background: "color-mix(in oklch, var(--rose) 8%, var(--bg))",
+                  border: "1px solid color-mix(in oklch, var(--rose) 35%, var(--bg))",
+                  marginBottom: 20,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rose)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <p style={{ margin: 0, fontSize: 13, color: "var(--rose)", lineHeight: 1.55 }}>
+                  {tLib("importPdf.visionWarning")}
+                </p>
               </div>
             )}
 

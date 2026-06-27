@@ -103,7 +103,8 @@
       "previewConfirm": "Lancer l'import",
       "doneMethod_text": "Texte intégré",
       "doneMethod_ocr": "Scanné → OCR",
-      "doneMethod_vision": "Scanné → Vision IA"
+      "doneMethod_vision": "Scanné → Vision IA",
+      "visionWarning": "Ce PDF est une image scannée — l'IA l'a lu visuellement et des erreurs de transcription sont plus probables. Relisez l'intégralité du script attentivement avant de commencer à répéter."
     },
     "dropHint": "Déposez un PDF ici pour commencer",
     "offBook": "% hors texte",
