@@ -28,6 +28,7 @@ export interface PrintPlayData {
   scenes: PrintScene[];
   userRoles?: string[];
   sceneId?: string | null;
+  sceneIds?: string[] | null;
   cueMode?: boolean;
 }
 
@@ -279,16 +280,25 @@ function charMeta(p: PrintCharacterProfile): string {
 }
 
 function renderLineContent(entry: ContentEntry, isCue: boolean): string {
-  if (isCue) {
-    return `<p class="line-cue">— — — — — — — — — — — — — — — —</p>`;
-  }
   if (entry.segments && entry.segments.length > 0) {
-    const inner = entry.segments.map((seg) =>
-      seg.action
-        ? `<em class="indir"> (${esc(seg.action)}) </em>`
-        : esc(seg.text ?? "")
-    ).join("");
+    const hasText = entry.segments.some((seg) => !seg.action && (seg.text ?? "").trim());
+    const inner = entry.segments.map((seg) => {
+      if (seg.action) return `<em class="indir"> (${esc(seg.action)}) </em>`;
+      if (isCue && hasText) return "";
+      return esc(seg.text ?? "");
+    }).join("");
+    // In cue mode show dashes after any inline actions when there is actual speech text
+    if (isCue && hasText) {
+      const actionPart = entry.segments
+        .filter((seg) => seg.action)
+        .map((seg) => `<em class="indir"> (${esc(seg.action!)}) </em>`)
+        .join("");
+      return `${actionPart ? `<p class="line">${actionPart}</p>` : ""}<p class="line-cue">— — — — — — — — — — — — — — — —</p>`;
+    }
     return `<p class="line">${inner}</p>`;
+  }
+  if (isCue && (entry.text ?? "").trim()) {
+    return `<p class="line-cue">— — — — — — — — — — — — — — — —</p>`;
   }
   return `<p class="line">${esc(entry.text ?? "")}</p>`;
 }
@@ -310,8 +320,11 @@ function renderScene(
     </div>`);
 
   let decorShown = false;
+  const content = scene.content;
+  let i = 0;
 
-  for (const entry of scene.content) {
+  while (i < content.length) {
+    const entry = content[i];
     const type = entry.type ?? "line";
 
     if (type === "scene_direction") {
@@ -325,29 +338,46 @@ function renderScene(
       } else {
         parts.push(`<p class="stage">${esc(entry.text ?? "")}</p>`);
       }
+      i++;
       continue;
     }
 
     if (type === "action" || type === "direction") {
       parts.push(`<p class="stage">(${esc(entry.text ?? "")})</p>`);
+      i++;
       continue;
     }
 
-    if (type !== "line") continue;
+    if (type !== "line") { i++; continue; }
 
     const ch = entry.ch ?? "";
-    const text = entryText(entry);
-    if (!ch && !text) continue;
+    if (!ch && !entryText(entry)) { i++; continue; }
+
+    // Collect consecutive entries from the same character into one speech block.
+    const group: ContentEntry[] = [entry];
+    let j = i + 1;
+    while (j < content.length) {
+      const next = content[j];
+      if ((next.type ?? "line") === "line" && next.ch === ch) {
+        group.push(next);
+        j++;
+      } else {
+        break;
+      }
+    }
+    i = j;
 
     const youLine = ch ? isUserRole(ch, userRoles) : false;
     const isCueMode = youLine && cueMode;
     const speechClass = youLine ? "speech speech-you" : "speech";
-    const dirHtml = entry.direction ? ` <span class="pdir">${esc(entry.direction)}</span>` : "";
+    const firstDirHtml = group[0].direction ? ` <span class="pdir">${esc(group[0].direction)}</span>` : "";
+
+    const bodyHtml = group.map((e) => renderLineContent(e, isCueMode)).join("\n");
 
     parts.push(`
     <div class="${speechClass}">
-      <p class="cue"><span class="who">${esc(ch)}</span>${dirHtml}</p>
-      ${renderLineContent(entry, isCueMode)}
+      <p class="cue"><span class="who">${esc(ch)}</span>${firstDirHtml}</p>
+      ${bodyHtml}
     </div>`);
   }
 
@@ -368,10 +398,15 @@ export function generatePlayPrintHtml(data: PrintPlayData): string {
     scenes,
     userRoles = [],
     sceneId,
+    sceneIds,
     cueMode = false,
   } = data;
 
-  const renderScenes = sceneId ? scenes.filter((s) => s.id === sceneId) : scenes;
+  const renderScenes = sceneId
+    ? scenes.filter((s) => s.id === sceneId)
+    : sceneIds?.length
+      ? scenes.filter((s) => sceneIds.includes(s.id))
+      : scenes;
   const charColorMap = buildCharColorMap(scenes);
   const bodyText = summary || description;
 
@@ -422,7 +457,7 @@ export function generatePlayPrintHtml(data: PrintPlayData): string {
   <section class="cover" data-screen-label="Couverture">
     <div class="cover-top">
       <span class="brand">${BRAND_SVG}<span class="wm">souffleur<span class="co">.co</span></span></span>
-      <span class="cover-edition">Édition de lecture<br>${sceneId ? "Extrait" : "Texte intégral"}</span>
+      <span class="cover-edition">Édition de lecture<br>${sceneId ? "Extrait" : sceneIds?.length ? "Mes scènes" : "Texte intégral"}</span>
     </div>
     <div class="cover-mid">
       <div class="cover-kicker">${esc(kicker)}</div>
@@ -436,7 +471,7 @@ export function generatePlayPrintHtml(data: PrintPlayData): string {
         ${speakingChars.length > 0 ? `<div class="m"><span class="m-k">Distribution</span><span class="m-v">${speakingChars.length} personnage${speakingChars.length !== 1 ? "s" : ""}</span></div>` : ""}
         ${totalLines > 0 ? `<div class="m"><span class="m-k">Répliques</span><span class="m-v">${totalLines}</span></div>` : ""}
       </div>
-      ${sceneId ? `<p class="cover-scene-focus">Extrait de la pièce, ${esc(sceneLabel)}</p>` : ""}
+      ${sceneId ? `<p class="cover-scene-focus">Extrait de la pièce, ${esc(sceneLabel)}</p>` : sceneIds?.length ? `<p class="cover-scene-focus">Mes scènes uniquement — ${sceneIds.length} scène${sceneIds.length !== 1 ? "s" : ""} sur ${scenes.length}</p>` : ""}
     </div>
     <div class="cover-foot">
       <span>Généré par <a href="https://souffleur.co" target="_blank" rel="noopener">SOUFFLEUR.co</a>, le prompteur numérique</span>
@@ -448,7 +483,7 @@ export function generatePlayPrintHtml(data: PrintPlayData): string {
   const anyHasDescription = speakingChars.some(([, p]) => !!p.description);
 
   let frontMatterHtml: string;
-  if (sceneId || (!bodyText && speakingChars.length === 0)) {
+  if (sceneId || (!bodyText && speakingChars.length === 0 && !sceneIds?.length)) {
     frontMatterHtml = "";
   } else {
     const castHtml = (() => {

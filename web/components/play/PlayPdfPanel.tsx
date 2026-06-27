@@ -9,13 +9,14 @@ interface PlayPdfPanelProps {
   userPlayId: string;
   playTitle: string;
   userRoles: string[];
+  mySceneIds?: string[];
   onClose: () => void;
 }
 
-type Scope = "scene" | "play";
+type Scope = "scene" | "play" | "my-scenes";
 type Status = "idle" | "done";
 
-export default function PlayPdfPanel({ userPlayId, playTitle: _playTitle, userRoles, onClose }: PlayPdfPanelProps) {
+export default function PlayPdfPanel({ userPlayId, playTitle: _playTitle, userRoles, mySceneIds = [], onClose }: PlayPdfPanelProps) {
   const t = useTranslations("play");
   const { currentReadSceneId } = useSceneNav();
 
@@ -36,6 +37,7 @@ export default function PlayPdfPanel({ userPlayId, playTitle: _playTitle, userRo
   function buildPrintUrl() {
     const params = new URLSearchParams();
     if (scope === "scene" && currentReadSceneId) params.set("scene", currentReadSceneId);
+    if (scope === "my-scenes") params.set("scenes", mySceneIds.join(","));
     if (!highlight) params.set("highlight", "false");
     if (cueMode && hasRoles) params.set("cue", "true");
     return `/api/plays/${userPlayId}/print-view?${params}`;
@@ -129,6 +131,16 @@ export default function PlayPdfPanel({ userPlayId, playTitle: _playTitle, userRo
               label={t("pdf.scopeScene")}
               desc={scopeCanScene ? t("pdf.scopeSceneDesc") : t("pdf.scopeSceneNone")}
               dimmed={!scopeCanScene}
+            />
+            <RadioRow
+              checked={scope === "my-scenes"}
+              disabled={mySceneIds.length === 0}
+              onClick={() => mySceneIds.length > 0 && setScope("my-scenes")}
+              label={t("pdf.scopeMyScenes")}
+              desc={mySceneIds.length > 0
+                ? t("pdf.scopeMyScenesDesc", { count: mySceneIds.length })
+                : t("pdf.scopeMyScenesNone")}
+              dimmed={mySceneIds.length === 0}
             />
           </OptionGroup>
 

@@ -12,6 +12,7 @@ export async function GET(
   const { id } = await params;
   const { searchParams } = new URL(req.url);
   const sceneId     = searchParams.get("scene")     ?? undefined;
+  const sceneIds    = searchParams.get("scenes")?.split(",").filter(Boolean) ?? undefined;
   const noHighlight = searchParams.get("highlight")  === "false";
   const cueMode     = searchParams.get("cue")        === "true";
 
@@ -80,6 +81,7 @@ export async function GET(
     scenes,
     userRoles: noHighlight ? [] : userRoles,
     sceneId,
+    sceneIds,
     cueMode: cueMode && userRoles.length > 0,
   });
 

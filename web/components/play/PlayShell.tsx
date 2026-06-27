@@ -521,6 +521,7 @@ function PlayShellInner({
           userPlayId={userPlayId}
           playTitle={playTitle}
           userRoles={roles}
+          mySceneIds={[...new Set(roles.flatMap(r => (charStats[r]?.scenes ?? []).map(s => s.id)))]}
           onClose={() => setPdfOpen(false)}
         />
       )}
